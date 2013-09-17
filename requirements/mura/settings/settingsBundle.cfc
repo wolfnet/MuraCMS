@@ -82,6 +82,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfset var sArgs			= StructNew() />
 		<cfset var rsImportFiles = "" />
 		<cfset var importWDDX = "" />
+		<cfset var i = "">
 		
 		<cfset variables.Bundle	= variables.unpackPath />
 
@@ -109,8 +110,18 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfloop query="rsImportFiles">
 			<cfset fname = rereplace(rsImportFiles.name,"^wddx_(.*)\.xml","\1") />
 			<cffile action="read" file="#variables.unpackPath##rsImportFiles.name#" variable="importWDDX" charset="utf-8">
+			
+			<!--- replace lower, non-printable ascii chars --->
+			<cfloop from="1" to="31" index="i">
+				<cfset importWDDX = replace(importWDDX,chr(i),"","all")>
+			</cfloop>
+			
+			<!--- fix mixed occurances of ampersands by converting all to entities --->
+			<!---<cfset importWDDX = replace(importWDDX,'&amp;',"&","all")>
+			<cfset importWDDX = replace(importWDDX,"&","&amp;","all")>--->
+
 			<cftry>
-				<cfwddx action="wddx2cfml" input=#importWDDX# output="importValue">
+				<cfwddx action="wddx2cfml" input=#importWDDX# output="importValue" validate="yes">
 			<cfcatch>
 				<cfdump var="An error happened while trying to deserialize #rsImportFiles.name#.">
 				<cfdump var="#cfcatch#">
@@ -264,7 +275,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 				<cffile action="write" file="#variables.backupDir#plugins#variables.fileDelim#blank.txt" output="empty file" /> 
 			</cfif>
 			<cfloop query="rstplugins">
-				<cfset variables.utility.copyDir( expandPath("/plugins/#rstplugins.directory#"),"#variables.backupDir#plugins/#rstplugins.directory#" )>
+				<cfset variables.utility.copyDir("#variables.configBean.getPluginDir()##variables.fileDelim##rstplugins.directory#","#variables.backupDir#plugins#variables.fileDelim##rstplugins.directory#" )>
 			</cfloop>
 			<cfset variables.zipTool.AddFiles(zipFilePath="#variables.backupDir#pluginfiles.zip",directory="#variables.backupDir#plugins/",recurse="true")>
 		</cfif>
@@ -314,15 +325,19 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 				<cfif fileExists( getBundle() & "sitefiles.zip" )>
 					<cfset zipPath = getBundle() & "sitefiles.zip" />
 					
-					<cfset destDir = variables.configBean.getValue('filedir') & variables.fileDelim & arguments.siteID />
-					<cfset variables.zipTool.Extract(zipFilePath="#zipPath#",extractPath=destDir, overwriteFiles=true, extractDirs="cache")>
-					
-					<cfset destDir = variables.configBean.getValue('assetdir') & variables.fileDelim & arguments.siteID />
-					<cfset variables.zipTool.Extract(zipFilePath="#zipPath#",extractPath=destDir, overwriteFiles=true, extractDirs="assets")>
+					<cfif not fileExists( getBundle() & "filefiles.zip" )>
+						<cfset destDir = variables.configBean.getValue('filedir') & variables.fileDelim & arguments.siteID />
+						<cfset variables.zipTool.Extract(zipFilePath="#zipPath#",extractPath=destDir, overwriteFiles=true, extractDirs="cache")>
+					</cfif>
+
+					<cfif not fileExists( getBundle() & "assetfiles.zip" )>
+						<cfset destDir = variables.configBean.getValue('assetdir') & variables.fileDelim & arguments.siteID />
+						<cfset variables.zipTool.Extract(zipFilePath="#zipPath#",extractPath=destDir, overwriteFiles=true, extractDirs="assets")>
+					</cfif>
 				</cfif>
 				<cfif fileExists( getBundle() & "assetfiles.zip" )>
 					<cfset zipPath = getBundle() & "assetfiles.zip" />
-					<cfset destDir = variables.configBean.getValue('assetdir') & variables.fileDelim & arguments.siteID & variables.fileDelim & "assets" & variables.fileDelim />
+					<cfset destDir = variables.configBean.getValue('assetdir') & variables.fileDelim & arguments.siteID />
 					<cfset variables.zipTool.Extract(zipFilePath="#zipPath#",extractPath=destDir, overwriteFiles=true)>
 				</cfif>
 				<cfif fileExists( getBundle() & "filefiles.zip" )>
@@ -1160,6 +1175,8 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 			    from timagesizes where siteid = <cfqueryparam cfsqltype="cf_sql_varchar" value="#arguments.siteID#"/> 
 			</cfquery>	
 
+			<cfset setValue("rstimagesizes",rstimagesizes)>
+			
 			<cfset setValue("assetPath",application.configBean.getAssetPath())>
 			<cfset setValue("context",application.configBean.getContext())>
 			
@@ -1200,7 +1217,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfset setValue("rstplugins",rstplugins)>
 		
 		<cfloop query="rstplugins">
-			<cfif fileExists(expandPath("/plugins/#rstplugins.directory#/plugin/plugin.cfc"))>	
+			<cfif fileExists(variables.configBean.getPluginDir() & "/#rstplugins.directory#/plugin/plugin.cfc")>	
 				<cfset pluginConfig=getPlugin(ID=rstplugins.moduleID, siteID="", cache=false)>
 				<cfset pluginCFC= createObject("component","plugins.#rstplugins.directory#.plugin.plugin") />
 						
@@ -1370,6 +1387,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfargument name="name" type="string" required="true">
 		<cfargument name="value" type="any" required="true">
 		<cfset var temp="">
+		<cfset var i = "">
 		
 		<cfif isQuery(arguments.value) and application.configBean.getDBType() eq "Oracle">
 			<cfset arguments.value=variables.utility.fixOracleClobs(arguments.value)>
@@ -1377,6 +1395,12 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		
 		<cfset variables.data["#name#"]=arguments.value>
 		<cfwddx action="cfml2wddx" input="#arguments.value#" output="temp">
+		
+		<!--- replace lower, non-printable ascii chars --->
+		<cfloop from="1" to="31" index="i">
+			<cfset temp = replace(temp, chr(i), "", "all")>
+		</cfloop>
+		
 		<cffile action="write" output="#temp#" file="#variables.backupDir#wddx_#arguments.name#.xml"  charset="utf-8">
 	</cffunction>
 

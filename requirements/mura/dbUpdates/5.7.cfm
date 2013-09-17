@@ -98,7 +98,7 @@
 	.addColumn(column="height",dataType="varchar",length="10")
 	.addColumn(column="width",dataType="varchar",length="10")
 	.addPrimaryKey('sizeID')
-	.addIndex('sizeID')
+	//.addIndex('sizeID')
 	.addIndex('siteID');
 
 	dbUtility.setTable("ttrash")
@@ -162,6 +162,9 @@
 	.addColumn(column="editfilename",dataType="varchar",length="255")
 	.addPrimaryKey("dirID")
 	.addIndex("siteID");
+
+	dbUtility.setTable("tcontentfeeds").addColumn(column="imageSize",dataType="varchar",length="50");
+	dbUtility.setTable("tcontent").addColumn(column="imageSize",dataType="varchar",length="50");
 </cfscript>
 
 

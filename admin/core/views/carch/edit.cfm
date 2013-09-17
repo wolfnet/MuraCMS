@@ -80,11 +80,13 @@ $(document).ready(function(){
 	var anchors=document.getElementsByTagName("A");
 	
 	for(var i=0;i<anchors.length;i++){	
-		if (typeof(anchors[i].onclick) != 'function' 
-			&& typeof(anchors[i].getAttribute('href')) == 'string' 
-			&& anchors[i].getAttribute('href').indexOf('#') == -1) {
-   			anchors[i].onclick = setRequestedURL;
-		}
+		try{
+			if (typeof(anchors[i].onclick) != 'function' 
+				&& typeof(anchors[i].getAttribute('href')) == 'string' 
+				&& anchors[i].getAttribute('href').indexOf('#') == -1) {
+	   			anchors[i].onclick = setRequestedURL;
+			}
+		} catch(err){}
 	}
 	
 });
@@ -101,6 +103,8 @@ function conditionalExit(msg){
 	if(msg==null){
 		<cfoutput>msg="#JSStringFormat(application.rbFactory.getKeyValue(session.rb,"sitemanager.content.saveasdraft"))#";</cfoutput>
 	}
+
+	document.contentForm.approved.value=0;
 	jQuery("#alertDialog").html(msg);
 	jQuery("#alertDialog").dialog({
 			resizable: false,
@@ -173,7 +177,7 @@ var hasBody=#subType.getHasBody()#;
 			<cfquery name="rsSubTypes" dbtype="query">
 			select * from rsSubTypes
 			where 
-				type in (<cfqueryparam cfsqltype="cf_sql_varchar" list="true" value="#pageLevelList#"/>)
+				type in (<cfqueryparam cfsqltype="cf_sql_varchar" list="true" value="#extendedList#"/>)
 				or type='Base'
 			</cfquery>
 		<!---
@@ -237,12 +241,12 @@ var hasBody=#subType.getHasBody()#;
 	<cfoutput>
 	<div class="form-actions">
 	
-		 <button type="button" class="btn" onclick="if(siteManager.ckContent(draftremovalnotice)){submitForm(document.contentForm,'add');}"><i class="icon-check"></i> #HTMLEditFormat(application.rbFactory.getKeyValue(session.rb,"sitemanager.content.savedraft"))#</button>
+		 <button type="button" class="btn" onclick="document.contentForm.approved.value=0;if(siteManager.ckContent(draftremovalnotice)){submitForm(document.contentForm,'add');}"><i class="icon-check"></i> #HTMLEditFormat(application.rbFactory.getKeyValue(session.rb,"sitemanager.content.savedraft"))#</button>
 		<cfif listFindNoCase("Page,Folder,Calendar,Gallery",rc.type)>
-		<button type="button" class="btn" onclick="document.contentForm.preview.value=1;if(siteManager.ckContent(draftremovalnotice)){submitForm(document.contentForm,'add');}"><i class="icon-eye-open"></i> #HTMLEditFormat(application.rbFactory.getKeyValue(session.rb,"sitemanager.content.savedraftandpreview"))#</button>
+		<button type="button" class="btn" onclick="document.contentForm.approved.value=0;document.contentForm.preview.value=1;if(siteManager.ckContent(draftremovalnotice)){submitForm(document.contentForm,'add');}"><i class="icon-eye-open"></i> #HTMLEditFormat(application.rbFactory.getKeyValue(session.rb,"sitemanager.content.savedraftandpreview"))#</button>
 		</cfif>
 		<cfif assignChangesets>
-		<button type="button" class="btn" onclick="saveToChangeset('#rc.contentBean.getChangesetID()#','#HTMLEditFormat(rc.siteID)#','');return false;"><i class="icon-check"></i> #HTMLEditFormat(application.rbFactory.getKeyValue(session.rb,"sitemanager.content.savetochangeset"))#</button>	
+		<button type="button" class="btn" onclick="document.contentForm.approved.value=0;saveToChangeset('#rc.contentBean.getChangesetID()#','#HTMLEditFormat(rc.siteID)#','');return false;"><i class="icon-check"></i> #HTMLEditFormat(application.rbFactory.getKeyValue(session.rb,"sitemanager.content.savetochangeset"))#</button>	
 		</cfif>
 		<cfif rc.perm eq 'editor' and not $.siteConfig('EnforceChangesets')>
 		<button type="button" class="btn" onclick="document.contentForm.approved.value=1;if(siteManager.ckContent(draftremovalnotice)){submitForm(document.contentForm,'add');}"><i class="icon-check"></i> #HTMLEditFormat(application.rbFactory.getKeyValue(session.rb,"sitemanager.content.publish"))#</button>
@@ -312,9 +316,14 @@ var hasBody=#subType.getHasBody()#;
 		</p>
 	</cfif>
 
+	<cfif len(rc.contentBean.getNotes())>
+		<p class="alert">#application.rbFactory.getKeyValue(session.rb,"sitemanager.content.notes")#: #HTMLEditFormat(rc.contentBean.getNotes())#</p>
+	</cfif>
+
 	<cfif not structIsEmpty(rc.contentBean.getErrors())>
 		<div class="alert alert-error">#application.utility.displayErrors(rc.contentBean.getErrors())#</div>
 	</cfif>
+
 	<form novalidate="novalidate" action="index.cfm" method="post" enctype="multipart/form-data" name="contentForm" onsubmit="return ckContent(draftremovalnotice);" id="contentForm">
 	
 	<!--- This is plugin message targeting --->	
@@ -364,62 +373,66 @@ var hasBody=#subType.getHasBody()#;
 		<cfcase value="Page,Folder,Calendar,Gallery">
 			<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Layout & Objects')>
 				<cfif listFind(session.mura.memberships,'S2IsPrivate')>
-					<cfinclude template="form/dsp_tab_layoutoptions.cfm">
+					<cfinclude template="form/dsp_tab_layoutobjects.cfm">
 				</cfif>
 			</cfif>
 			<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Categorization')>
-			<cfif application.categoryManager.getCategoryCount(rc.siteID)>
-			<cfinclude template="form/dsp_tab_categories.cfm">
-			</cfif>
+				<cfif application.categoryManager.getCategoryCount(rc.siteID)>
+					<cfinclude template="form/dsp_tab_categories.cfm">
+				</cfif>
 			</cfif>
 			<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Tags')>
-			<cfinclude template="form/dsp_tab_tags.cfm">
+				<cfinclude template="form/dsp_tab_tags.cfm">
 			</cfif>	
 			<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Related Content')>
-			<cfinclude template="form/dsp_tab_related_content.cfm">
+				<cfinclude template="form/dsp_tab_related_content.cfm">
+			<cfelse>
+				<input type="hidden" name="ommitRelatedContentTab" value="true">
 			</cfif>
 		</cfcase>
 		<cfcase value="Link,File">
 			<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Categorization')>
-			<cfif application.categoryManager.getCategoryCount(rc.siteid)>
-			<cfinclude template="form/dsp_tab_categories.cfm">
-			</cfif>
+				<cfif application.categoryManager.getCategoryCount(rc.siteid)>
+					<cfinclude template="form/dsp_tab_categories.cfm">
+				</cfif>
 			</cfif>
 			<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Tags')>
-			<cfinclude template="form/dsp_tab_tags.cfm">
+				<cfinclude template="form/dsp_tab_tags.cfm">
 			</cfif>		
 			<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Related Content')>
-			<cfinclude template="form/dsp_tab_related_content.cfm">
+				<cfinclude template="form/dsp_tab_related_content.cfm">
+			<cfelse>
+				<input type="hidden" name="ommitRelatedContentTab" value="true">
 			</cfif>
 		</cfcase>
 		<cfcase value="Component">
 			<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Categorization')>
-			<cfif application.categoryManager.getCategoryCount(rc.siteID)>
-			<cfinclude template="form/dsp_tab_categories.cfm">
-			</cfif>
+				<cfif application.categoryManager.getCategoryCount(rc.siteID)>
+					<cfinclude template="form/dsp_tab_categories.cfm">
+				</cfif>
 			</cfif>
 			<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Tags')>
-			<cfinclude template="form/dsp_tab_tags.cfm">
+				<cfinclude template="form/dsp_tab_tags.cfm">
 			</cfif>	
 			<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Usage Report')>
-			<cfif not rc.contentBean.getIsNew()>
-			<cfinclude template="form/dsp_tab_usage.cfm">
-			</cfif>
+				<cfif not rc.contentBean.getIsNew()>
+					<cfinclude template="form/dsp_tab_usage.cfm">
+				</cfif>
 			</cfif>		
 		</cfcase>
 		<cfcase value="Form">
 			<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Categorization')>
-			<cfif application.categoryManager.getCategoryCount(rc.siteID)>
-			<cfinclude template="form/dsp_tab_categories.cfm">
-			</cfif>
+				<cfif application.categoryManager.getCategoryCount(rc.siteID)>
+					<cfinclude template="form/dsp_tab_categories.cfm">
+				</cfif>
 			</cfif>
 			<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Tags')>
-			<cfinclude template="form/dsp_tab_tags.cfm">
+				<cfinclude template="form/dsp_tab_tags.cfm">
 			</cfif>	
 			<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Usage Report')>
-			<cfif not rc.contentBean.getIsNew()>
-			<cfinclude template="form/dsp_tab_usage.cfm">
-			</cfif>
+				<cfif not rc.contentBean.getIsNew()>
+					<cfinclude template="form/dsp_tab_usage.cfm">
+				</cfif>
 			</cfif>
 		</cfcase>
 	</cfswitch>
@@ -435,14 +448,16 @@ var hasBody=#subType.getHasBody()#;
 		
 	<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Advanced')>
 		<cfif listFind(session.mura.memberships,'S2IsPrivate')>
-		<cfinclude template="form/dsp_tab_advanced.cfm">
+			<cfinclude template="form/dsp_tab_advanced.cfm">
+		<cfelse>
+			<input type="hidden" name="ommitAdvancedTab" value="true">
 		</cfif> 
 	</cfif>
 
 		<cfoutput query="rsPluginScripts" group="pluginID">
 			<!---<cfset tabLabelList=tabLabelList & ",'#jsStringFormat(rsPluginScripts.name)#'"/>--->
 			<cfset tabLabelList=listAppend(tabLabelList,rsPluginScripts.name)/>
-			<cfset tabID="tab" & application.contentRenderer.createCSSID(rsPluginScripts.name)>
+			<cfset tabID="tab" & $.createCSSID(rsPluginScripts.name)>
 			<cfset tabList=listAppend(tabList,tabID)>
 			<cfset pluginEvent.setValue("tabList",tabLabelList)>
 				<div id="#tabID#" class="tab-pane fade">
@@ -462,6 +477,9 @@ var hasBody=#subType.getHasBody()#;
 
 	<cfif not len(tabAssignments) or listFindNocase(tabAssignments,'Publishing')>
 		<cfinclude template="form/dsp_tab_publishing.cfm">
+	<cfelse>
+		<input type="hidden" name="ommitPublishingTab" value="true">
+		<cfoutput><input type="hidden" name="parentid" value="#HTMLEditFormat(rc.parentid)#"></cfoutput>
 	</cfif>
 	</cfsavecontent>
 	<cfoutput>
@@ -511,18 +529,18 @@ var hasBody=#subType.getHasBody()#;
 	</cfif>
 	<input name="action" type="hidden" value="add">
 	<input type="hidden" name="siteid" value="#HTMLEditFormat(rc.siteid)#">
-	<input type="hidden" name="moduleid" value="#rc.moduleid#">
+	<input type="hidden" name="moduleid" value="#HTMLEditFormat(rc.moduleid)#">
 	<input type="hidden" name="contenthistid" value="#rc.contentBean.getContentHistID()#">
-	<input type="hidden" name="return" value="#rc.return#">
-	<input type="hidden" name="topid" value="#rc.topid#">
+	<input type="hidden" name="return" value="#HTMLEditFormat(rc.return)#">
+	<input type="hidden" name="topid" value="#HTMLEditFormat(rc.topid)#">
 	<input type="hidden" name="contentid" value="#rc.contentBean.getContentID()#">
-	<input type="hidden" name="ptype" value="#rc.ptype#">
-	<input type="hidden" name="type" value="#rc.type#">
+	<input type="hidden" name="ptype" value="#HTMLEditFormat(rc.ptype)#">
+	<input type="hidden" name="type" value="#HTMLEditFormat(rc.type)#">
 	<input type="hidden" name="subtype" value="#rc.contentBean.getSubType()#">
 	<input type="hidden" name="muraAction" value="cArch.update">
-	<input type="hidden" name="startrow" value="#rc.startrow#">
-	<input type="hidden" name="returnURL" id="txtReturnURL" value="#rc.returnURL#">
-	<input type="hidden" name="homeID" value="#rc.homeID#">
+	<input type="hidden" name="startrow" value="#HTMLEditFormat(rc.startrow)#">
+	<input type="hidden" name="returnURL" id="txtReturnURL" value="#HTMLEditFormat(rc.returnURL)#">
+	<input type="hidden" name="homeID" value="#HTMLEditFormat(rc.homeID)#">
 	<cfif not  listFind(session.mura.memberships,'S2')>
 		<input type="hidden" name="isLocked" value="#rc.contentBean.getIsLocked()#">
 	</cfif>

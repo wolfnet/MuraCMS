@@ -1070,7 +1070,7 @@ select * from tplugins order by #arguments.orderby#
 		<cfset pluginConfig=getConfig(arguments.args.moduleID,'',false) />
 		
 		<!--- check to see is the plugin.cfc exists --->
-		<cfif fileExists(ExpandPath("/plugins") & "/" & pluginConfig.getDirectory() & "/plugin/plugin.cfc")>	
+		<cfif fileExists(variables.configBean.getPluginDir() & "/" & pluginConfig.getDirectory() & "/plugin/plugin.cfc")>	
 			<cfset pluginCFC= createObject("component","plugins.#pluginConfig.getDirectory()#.plugin.plugin") />
 			
 			<!--- only call the methods if they have been defined --->
@@ -1201,7 +1201,7 @@ select * from tplugins order by #arguments.orderby#
 	<cfset var pluginCFC="/">
 
 	<!--- check to see is the plugin.cfc exists --->
-	<cfif fileExists(ExpandPath("/plugins") & "/" & pluginConfig.getDirectory() & "/plugin/plugin.cfc")>	
+	<cfif fileExists(variables.configBean.getPluginDir() & "/" & pluginConfig.getDirectory() & "/plugin/plugin.cfc")>	
 		<cfset pluginCFC=createObject("component","plugins.#pluginConfig.getDirectory()#.plugin.plugin") />
 		
 		<!--- only call the methods if they have been defined --->
@@ -1279,7 +1279,7 @@ select * from tplugins order by #arguments.orderby#
 	<cfset var eventHandlerIndex="">
 	<cfset var eventHandler="">
 	<cfset var listenerArray="">
-	<cfset var isGlobalEvent=left(arguments.runat,8) eq "onGlobal" or arguments.runat eq "onApplicationLoad">
+	<cfset var isGlobalEvent=findNoCase('global',arguments.runat) or arguments.runat eq "onApplicationLoad">
 	<cfset var isValidEvent=false>
 	<cfset var siteIDadjusted=adjustSiteID(arguments.siteID)>
 	<cfset var muraScope="">
@@ -1487,7 +1487,7 @@ select * from tplugins order by #arguments.orderby#
 	<cfset var i="">
 	<cfset var eventHandler="">
 	<cfset var listenerArray="">
-	<cfset var isGlobalEvent=left(arguments.runat,8) eq "onGlobal" or arguments.runat eq "onApplicationLoad">
+	<cfset var isGlobalEvent=findNoCase('global',arguments.runat) or arguments.runat eq "onApplicationLoad">
 	<cfset var isValidEvent=false>
 	<cfset var siteIDadjusted=adjustSiteID(arguments.siteID)>
 	<cfset var muraScope="">
@@ -1722,6 +1722,7 @@ select * from tplugins order by #arguments.orderby#
 					<cfif len(testStr) or yesNoFormat(arguments.event.getValue("errorIsHandled"))>
 						<cfset str=str & testStr>
 					<cfelseif yesNoFormat(variables.configBean.getValue("debuggingenabled"))>
+						<cfset request.muraDynamicContentError=true>
 						<cfsavecontent variable="local.theDisplay1">
 						<cfdump var="#cfcatch#">
 						</cfsavecontent>
@@ -1730,6 +1731,7 @@ select * from tplugins order by #arguments.orderby#
 						<cfrethrow>
 					</cfif>
 				<cfelseif yesNoFormat(variables.configBean.getValue("debuggingenabled"))>
+					<cfset request.muraDynamicContentError=true>
 					<cfsavecontent variable="local.theDisplay1">
 					<cfdump var="#cfcatch#">
 					</cfsavecontent>
@@ -1738,6 +1740,7 @@ select * from tplugins order by #arguments.orderby#
 					<cfrethrow>
 				</cfif>
 			<cfelseif yesNoFormat(variables.configBean.getValue("debuggingenabled"))>
+				<cfset request.muraDynamicContentError=true>
                 <cfsavecontent variable="local.theDisplay1">
 				<cfdump var="#cfcatch#">
 				</cfsavecontent>
@@ -1895,6 +1898,7 @@ select * from tplugins order by #arguments.orderby#
 				<cfset arguments.event.setValue("error",cfcatch)>
 				<cfreturn renderScripts("onError",event.getValue('siteID'),arguments.event,rsOnError)>
 			<cfelseif variables.configBean.getDebuggingEnabled()>
+				<cfset request.muraDynamicContentError=true>
 				<cfsavecontent variable="theDisplay1"><cfdump var="#cfcatch#"></cfsavecontent>
 				<cfreturn theDisplay1>
 			 <cfelse>
@@ -2007,6 +2011,8 @@ select * from tplugins order by #arguments.orderby#
 <cfset rc.moduleID="">
 <cfset rc.jsLib=arguments.jsLib>
 <cfset rc.jsLibLoaded=arguments.jsLibLoaded>
+<cfset rc.renderMuraAlerts=false>
+<cfset rc.$=getBean('$').init(session.siteid)>
 
 <cfif arguments.compactDisplay>
 	<cfset layoutTemplate = "compact" />
@@ -2088,7 +2094,7 @@ select * from rs order by name
 		<cfif left(i,2) eq "on" or left(i,8) eq "standard">
 			<cfset handlerData=structNew()>
 			<cfset handlerData.index=arrayLen(variables.eventHandlers)>
-			<cfif left(i,8) neq "onGlobal">
+			<cfif not findNoCase('global',i)>
 				<cfif not structKeyExists(variables.siteListeners[siteIDadjusted],i)>
 					<cfset variables.siteListeners[siteIDadjusted][i]=arrayNew(1)>
 				</cfif>

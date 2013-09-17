@@ -2,8 +2,8 @@
 <!---
  * CKFinder
  * ========
- * http://ckfinder.com
- * Copyright (C) 2007-2012, CKSource - Frederico Knabben. All rights reserved.
+ * http://cksource.com/ckfinder
+ * Copyright (C) 2007-2013, CKSource - Frederico Knabben. All rights reserved.
  *
  * The software, this file and its contents are subject to the CKFinder
  * License. Please read the license.txt file before using, installing, copying,
@@ -31,7 +31,13 @@
 
 			<!--- execute command ---->
 			<cftry>
-				<cfset oObject=APPLICATION.CreateCFC("CommandHandler." & #command#)>
+				<!--- This is a hack because for some reason the DeleteFiles command can't be found --->
+				<cfif command eq "DeleteFiles">
+					<cfset oObject=APPLICATION.CreateCFC("CommandHandler.DeleteFile")>
+				<cfelse>
+					<cfset oObject=APPLICATION.CreateCFC("CommandHandler." & #command#)>
+				</cfif>
+				
 				<cfset result=oObject.sendResponse()>
 
 			<!--- actually, errors should be catched inside command handlers and this never should happen --->

@@ -48,6 +48,11 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 <cfparam name="rc.originalfuseAction" default="">
 <cfparam name="rc.originalcircuit" default="">
 <cfparam name="rc.moduleid" default="">
+<cfif not application.configBean.getSessionHistory() or application.configBean.getSessionHistory() gte 30>
+	<cfparam name="session.dashboardSpan" default="30">
+<cfelse>
+	<cfparam name="session.dashboardSpan" default="#application.configBean.getSessionHistory()#">
+</cfif>
 <cfif not isDefined("session.mura.memberships")>
   <cflocation url="#application.configBean.getContext()#/admin/?muraAction=cLogin.logout" addtoken="false">
 </cfif>
@@ -144,7 +149,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	                    <li><a id="navHelpDocs" href="http://www.getmura.com/support/" target="_blank"><i class="icon-question-sign"></i> #application.rbFactory.getKeyValue(session.rb,"layout.support")#</a></li>
 	                	<li>
 	                    <a id="navFckEditorDocs" href="http://docs.cksource.com/" target="_blank"><i class="icon-bookmark"></i> #application.rbFactory.getKeyValue(session.rb,"layout.editordocumentation")#</a></li>
-	                <li><a id="navProg-API" href="http://www.getmura.com/mura/5/components/" target="_blank"><i class="icon-bookmark"></i> Component API</a></li>
+	                <li><a id="navProg-API" href="http://www.getmura.com/mura/6/components/" target="_blank"><i class="icon-bookmark"></i> Component API</a></li>
 	                <li><a id="navCSS-API" href="http://docs.getmura.com/index.cfm/developer-guides/" target="_blank"><i class="icon-bookmark"></i> #application.rbFactory.getKeyValue(session.rb,"layout.developers")#</a></li>
 	                   <li class="last"><a id="navHelpForums" href="http://www.getmura.com/forum/" target="_blank"><i class="icon-bullhorn"></i> #application.rbFactory.getKeyValue(session.rb,"layout.supportforum")#</a></li>
 	                  </ul>

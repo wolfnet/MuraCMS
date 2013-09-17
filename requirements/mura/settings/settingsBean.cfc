@@ -554,7 +554,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 </cffunction>
 
 <cffunction name="purgeCache" access="public" output="false">
-	<cfargument name="name" default="data" hint="data, output or both">
+	<cfargument name="name" default="output" hint="data, output or both">
 	<cfargument name="broadcast" default="true">
 	<cfset getCacheFactory(name=arguments.name).purgeAll()>
 	<cfif arguments.broadcast>
@@ -776,7 +776,11 @@ s
 <cfif not isObject(arguments.$)>
 	<cfif not isObject(variables.instance.contentRenderer)>
 		<cfset arguments.$=getBean("$")>
-		<cfset variables.instance.contentRenderer=createObject("component","#getAssetMap()#.includes.contentRenderer").init(event=arguments.$.event(),$=arguments.$,MURA=arguments.$)>
+		<cfif fileExists(expandPath("#getIncludePath()#/includes/contentRenderer.cfc"))>
+			<cfset variables.instance.contentRenderer=createObject("component","#getAssetMap()#.includes.contentRenderer").init(event=arguments.$.event(),$=arguments.$,MURA=arguments.$)>
+		<cfelse>
+			<cfset variables.instance.contentRenderer=createObject("component","mura.content.contentRenderer").init(event=arguments.$.event(),$=arguments.$,MURA=arguments.$)>
+		</cfif>
 	</cfif>
 	<cfreturn variables.instance.contentRenderer>
 <cfelse>
@@ -841,7 +845,7 @@ if(not isObject(arguments.$)){
 	<cfargument name="reset" default="false">
 	<cfset var rsCustomImageSizeQuery="">
 
-	<cfquery name="rsCustomImageSizeQuery" username="#variables.configBean.getDbUsername()#"  password="#variables.configBean.getDbPassword()#">
+	<cfquery name="rsCustomImageSizeQuery" datasource="#variables.configBean.getDatasource()#" username="#variables.configBean.getDbUsername()#"  password="#variables.configBean.getDbPassword()#">
 		select sizeid,siteid,name,height,width from timagesizes where siteID=<cfqueryparam cfsqltype="cf_sql_varchar" value="#variables.instance.siteid#">
 	</cfquery>
 	
@@ -867,6 +871,11 @@ if(not isObject(arguments.$)){
 	<cfset arguments.settingsBean=this>
 	
 	<cfreturn application.settingsManager.read(argumentCollection=arguments)>
+</cffunction>
+
+<cffunction name="getScheme">
+	<!--- Temporary : will eventually be a Site Setting, but for now, pull from extranetSSL --->
+	<cfreturn getValue('extranetSSL') ? 'https' : 'http' />
 </cffunction>
 
 </cfcomponent>

@@ -79,9 +79,9 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		</cfif>
 
 		<cfif arguments.isCustomImage>
-			<cfset arguments.imageStyles='style="#variables.$.generateListImageSyles(size='custom',width=arguments.imageWidth,height=arguments.imageHeight,padding=arguments.imagePadding)#"'>
+			<cfset arguments.imageStyles='style="#variables.$.generateListImageStyles(size='custom',width=arguments.imageWidth,height=arguments.imageHeight,padding=arguments.imagePadding)#"'>
 		<cfelse>
-			<cfset arguments.imageStyles='style="#variables.$.generateListImageSyles(size=arguments.imageSize,width=arguments.imageWidth,height=arguments.imageHeight,padding=arguments.imagePadding)#"'>
+			<cfset arguments.imageStyles='style="#variables.$.generateListImageStyles(size=arguments.imageSize,width=arguments.imageWidth,height=arguments.imageHeight,padding=arguments.imagePadding)#"'>
 		</cfif>
 	</cfif>
 </cfsilent>	
@@ -146,7 +146,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 					<cfcase value="Body">
 						<cfif not listFindNoCase('File,Link',arguments.item.getValue('type'))>
 							<cfif len(arguments.item.getValue('body')) and arguments.item.getValue('body') neq "<p></p>">
-								<!---<div class="summary">--->#variables.$.setDynamicContent(arguments.item.getValue('summary'))#<!---</div>--->
+								<!---<div class="summary">--->#variables.$.setDynamicContent(arguments.item.getValue('body'))#<!---</div>--->
 							</cfif>
 						<cfelse>
 							<cfif len(arguments.item.getValue('summary')) and arguments.item.getValue('summary') neq "<p></p>">

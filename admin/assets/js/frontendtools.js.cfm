@@ -3,16 +3,18 @@
 <cfset isIeSix=FindNoCase('MSIE 6','#CGI.HTTP_USER_AGENT#') GREATER THAN 0>
 <cfset $=application.serviceFactory.getBean("MuraScope").init(url.siteID)>
 <cfparam name="Cookie.fetDisplay" default="">
-<cfoutput>	
+<cfoutput>
 	var adminProxy;
 	var adminDomain=<cfif len($.globalConfig('admindomain'))>"#$.globalConfig('admindomain')#"<cfelse>location.hostname</cfif>;
 	var adminProtocal=<cfif application.configBean.getAdminSSL() or application.utility.isHTTPS()>"https://";<cfelse>"http://"</cfif>;
 	var adminProxyLoc=adminProtocal + adminDomain + "#$.globalConfig('serverPort')##$.globalConfig('context')#/admin/assets/js/porthole/proxy.html";
+	var adminLoc=adminProtocal + adminDomain + "#$.globalConfig('serverPort')##$.globalConfig('context')#/admin/index.cfm";
 	var frontEndProxyLoc= location.protocol + "//" + location.hostname + "#$.globalConfig('serverPort')#";
 	
 	function onAdminMessage(messageEvent){
 
-		if (messageEvent.origin == adminProtocal + adminDomain + "#$.globalConfig('serverPort')#") {
+		if (messageEvent.origin == 'http://' + adminDomain + "#$.globalConfig('serverPort')#"
+			|| messageEvent.origin == 'https://' + adminDomain + "#$.globalConfig('serverPort')#") {
 			
 			var parameters=messageEvent.data;
 		
@@ -44,8 +46,8 @@
 	var frontEndModalWidthConfigurator=600;
 	var frontEndModalHeight=0;
 	var frontEndModalWidth=0;
-	var frontEndModalIE8=jQuery.browser.msie && +$.browser.version === 8;
-
+	var frontEndModalIE8=document.all && document.querySelector && !document.addEventListener;
+	
 	function openFrontEndToolsModal(a){
 		var src=a.href + "&frontEndProxyLoc=" + frontEndProxyLoc;
 		var isModal=jQuery(a).attr("data-configurator");
@@ -190,6 +192,10 @@
 			resizeEditableObjects();
 			checkToolbarDisplay();
 			initAdminProxy();
+			
+			if(frontEndModalIE8){
+				$("##adminQuickEdit").remove();
+			}
 		}
 	);
 
@@ -326,7 +332,7 @@
 				}
 
 				if(count){
-					$.post('#application.configBean.getContext()#/admin/index.cfm',
+					$.post(adminLoc,
 						muraInlineEditor.data,
 						function(data){
 							var resp = eval('(' + data + ')');

@@ -350,6 +350,10 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 			<cfset var nowAdjusted="">
 			<cfset var tableModifier="">
 
+			<cfif not listFindNoCase('asc,desc',arguments.sortDirection)>
+				<cfset arguments.sortDirection='asc'>
+			</cfif>
+
 			<cfif dbtype eq "MSSQL">
 				<cfset tableModifier="with (nolock)">
 			</cfif>
@@ -373,7 +377,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 				title, releasedate, menuTitle, tcontent.lastupdate,summary, tags,tcontent.filename, type,subType, tcontent.siteid,
 				tcontent.contentid, tcontent.contentHistID, target, targetParams, 
 				restricted, restrictgroups, displaystart, displaystop, orderno,sortBy,sortDirection,
-				tcontent.fileid, credits, remoteSource, remoteSourceURL, remoteURL,
+				tcontent.fileid, tcontent.credits, tcontent.remoteSource, tcontent.remoteSourceURL, tcontent.remoteURL,
 				tfiles.fileSize,tfiles.fileExt, audience, keypoints
 				,tcontentstats.rating,tcontentstats.totalVotes,tcontentstats.downVotes,tcontentstats.upVotes
 				,tcontentstats.comments, '' as parentType, <cfif doKids> qKids.kids<cfelse>null as kids</cfif>,tcontent.path, tcontent.created, tcontent.nextn,
@@ -802,6 +806,10 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	<cfargument name="sortBy" type="string" required="true" default="lastUpdate">
 	<cfargument name="sortDirection" type="string" required="true" default="desc">
 	<cfset var rsDraftList = "">
+
+	<cfif not listFindNoCase('asc,desc',arguments.sortDirection)>
+		<cfset arguments.sortDirection='desc'>
+	</cfif>
 	
 	<cfquery name="rsDraftList" datasource="#variables.configBean.getReadOnlyDatasource()#"  username="#variables.configBean.getReadOnlyDbUsername()#" password="#variables.configBean.getReadOnlyDbPassword()#">
 	SELECT DISTINCT tmodule.Title AS module, active.ModuleID, active.SiteID, active.ParentID, active.Type, active.subtype, active.MenuTitle, active.Filename, active.ContentID,
@@ -922,6 +930,10 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfset var isExtendedSort=(not listFindNoCase(sortOptions,arguments.sortBy))>
 		<cfset var dbType=variables.configBean.getDbType() />
 		<cfset var tableModifier="">
+
+		<cfif not listFindNoCase('asc,desc',arguments.sortDirection)>
+			<cfset arguments.sortDirection='asc'>
+		</cfif>
 
 		<cfif dbtype eq "MSSQL">
 			<cfset tableModifier="with (nolock)">
@@ -1251,7 +1263,18 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 						(tcontent.Title like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#kw#%"/>
 						or tcontent.menuTitle like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#kw#%"/>
 						or tcontent.summary like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#kw#%"/>
-						or tcontent.body like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#kw#%"/>)
+						or 
+								(
+									tcontent.type not in ('Link','File')
+									and tcontent.body like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
+								)
+						or tcontent.contenthistid in (
+								select distinct tcontent.contenthistid from tclassextenddata 
+								inner join tcontent on (tclassextenddata.baseid=tcontent.contenthistid)
+								where tcontent.active=1
+								and tcontent.siteid=<cfqueryparam cfsqltype="cf_sql_varchar" value="#arguments.siteID#"/> 
+								and tclassextenddata.attributeValue like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
+							))
 						and not (
 						tcontent.Title = <cfqueryparam cfsqltype="cf_sql_varchar" value="#kw#"/>
 						or tcontent.menuTitle = <cfqueryparam cfsqltype="cf_sql_varchar" value="#kw#"/>	
@@ -1339,7 +1362,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	<cfset var c = "">
 	<cfset var categoryListLen=listLen(arguments.categoryID)>
 	
-	<cfquery name="rsPublicSearch" datasource="#variables.configBean.getReadOnlyDatasource()#" username="#variables.configBean.getReadOnlyDbUsername()#" password="#variables.configBean.getReadOnlyDbPassword()#">
+	<cfquery name="rsPublicSearch" datasource="#variables.configBean.getReadOnlyDatasource()#"  username="#variables.configBean.getReadOnlyDbUsername()#" password="#variables.configBean.getReadOnlyDbPassword()#" maxrows="1000">
 	<!--- Find direct matches with no releasedate --->
 	
 	select tcontent.contentid,tcontent.contenthistid,tcontent.siteid,tcontent.title,tcontent.menutitle,tcontent.targetParams,tcontent.filename,tcontent.summary,tcontent.tags,
@@ -1348,7 +1371,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	tcontent.credits, tcontent.remoteSource, tcontent.remoteSourceURL, 
 	tcontent.remoteURL,tfiles.fileSize,tfiles.fileExt,tcontent.fileID,tcontent.audience,tcontent.keyPoints,
 	tcontentstats.rating,tcontentstats.totalVotes,tcontentstats.downVotes,tcontentstats.upVotes, 0 as kids, 
-	tparent.type parentType,tcontent.nextn,tcontent.path,tcontent.orderno,tcontent.lastupdate,tcontent.created,
+	tparent.type parentType,tcontent.nextn,tcontent.path,tcontent.orderno,tcontent.lastupdate, tcontent.created,
 	tcontent.created sortdate, 0 sortpriority,tcontent.majorVersion, tcontent.minorVersion, tcontentstats.lockID, 
 	tcontent.expires,tfiles.filename as assocFilename
 	from tcontent Left Join tfiles ON (tcontent.fileID=tfiles.fileID)
@@ -1412,8 +1435,19 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 							or tcontent.menuTitle like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
 							or tcontent.metaKeywords like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
 							or tcontent.summary like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%"> 
-							or tcontent.body like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
-							or tcontent.credits like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">)
+							or (
+									tcontent.type not in ('Link','File')
+									and tcontent.body like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
+								)
+							or tcontent.credits like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
+
+							or tcontent.contenthistid in (
+								select distinct tcontent.contenthistid from tclassextenddata 
+								inner join tcontent on (tclassextenddata.baseid=tcontent.contenthistid)
+								where tcontent.active=1
+								and tcontent.siteid=<cfqueryparam cfsqltype="cf_sql_varchar" value="#arguments.siteID#"/> 
+								and tclassextenddata.attributeValue like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
+							))
 				</cfif>
 				
 				and tcontent.searchExclude=0
@@ -1444,7 +1478,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	tcontent.credits, tcontent.remoteSource, tcontent.remoteSourceURL, 
 	tcontent.remoteURL,tfiles.fileSize,tfiles.fileExt,tcontent.fileID,tcontent.audience,tcontent.keyPoints,
 	tcontentstats.rating,tcontentstats.totalVotes,tcontentstats.downVotes,tcontentstats.upVotes, 0 as kids, 
-	tparent.type parentType,tcontent.nextn,tcontent.path,tcontent.orderno,tcontent.lastupdate,tcontent.created,
+	tparent.type parentType,tcontent.nextn,tcontent.path,tcontent.orderno,tcontent.lastupdate, tcontent.created,
 	tcontent.releaseDate sortdate, 0 sortpriority,tcontent.majorVersion, tcontent.minorVersion, tcontentstats.lockID, 
 	tcontent.expires,tfiles.filename as assocFilename
 	from tcontent Left Join tfiles ON (tcontent.fileID=tfiles.fileID)
@@ -1505,11 +1539,24 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 					--->
 					and
 							(tcontent.Title like  <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
+							
 							or tcontent.menuTitle like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
 							or tcontent.metaKeywords like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
 							or tcontent.summary like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%"> 
-							or tcontent.body like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
-							or tcontent.credits like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">)
+							or 
+								(
+									tcontent.type not in ('Link','File')
+									and tcontent.body like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
+								)
+							or tcontent.credits like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
+
+							or tcontent.contenthistid in (
+								select distinct tcontent.contenthistid from tclassextenddata 
+								inner join tcontent on (tclassextenddata.baseid=tcontent.contenthistid)
+								where tcontent.active=1
+								and tcontent.siteid=<cfqueryparam cfsqltype="cf_sql_varchar" value="#arguments.siteID#"/> 
+								and tclassextenddata.attributeValue like <cfqueryparam cfsqltype="cf_sql_varchar" value="%#arguments.keywords#%">
+							))
 				</cfif>
 				
 				and tcontent.searchExclude=0
@@ -1529,7 +1576,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 				
 				#renderMobileClause()#			
 	</cfquery>
-	
+
 	<cfquery name="rsPublicSearch" dbtype="query">
 		select *
 		from rsPublicSearch 
@@ -1563,12 +1610,12 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	<cfargument name="sortDirection" type="string" default="desc" >
 	<cfset var rs ="" />
 
-	<cfif not len(arguments.sortBy)>
-		<cfset arguments.sortBy=created>
+	<cfif not listFindNoCase('menutitle,title,lastupdate,releasedate,orderno,displaystart,displaystop,created,credits,type,subtype,comments,rating',arguments.sortby)>
+		<cfset arguments.sortBy='created'>
 	</cfif>
 
-	<cfif not len(arguments.sortDirection)>
-		<cfset arguments.sortDirection=desc>
+	<cfif not listFindNoCase('asc,desc',arguments.sortDirection)>
+		<cfset arguments.sortDirection='desc'>
 	</cfif>
 
 	<cfquery name="rsRelatedContent" datasource="#variables.configBean.getReadOnlyDatasource()#"  username="#variables.configBean.getReadOnlyDbUsername()#" password="#variables.configBean.getReadOnlyDbPassword()#">
@@ -1925,6 +1972,8 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		and siteID=<cfqueryparam cfsqltype="cf_sql_varchar" value="#arguments.siteID#"> 
         #renderActiveClause("tcontent",arguments.siteID)#
 		and releaseDate <> ''
+		and display != 0
+		and isNav = 1
 		group by parentID,
 		<cfif variables.configBean.getDbTYpe() neq 'oracle'>
 			month(releaseDate),
@@ -1951,6 +2000,8 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		and siteID=<cfqueryparam cfsqltype="cf_sql_varchar" value="#arguments.siteID#"> 
         #renderActiveClause("tcontent",arguments.siteID)#
 		and releaseDate is null
+		and display != 0
+		and isNav = 1
 		group by parentID,
 		<cfif variables.configBean.getDbTYpe() neq 'oracle'>
 			month(lastUpdate),

@@ -41,6 +41,16 @@ the GNU General Public License version 2 ?without this exception. ?You may, if y
 to your own modified versions of Mura CMS.
 --->
 
+<!--- Prevent installation if under a directory called 'mura' --->
+<cfscript>
+  muraInstallPath = GetDirectoryFromPath(GetCurrentTemplatePath());
+  fileDelim = FindNoCase('Windows', Server.OS.Name) ? '\' : '/';
+</cfscript> 
+<cfif ListFindNoCase(muraInstallPath, 'mura', fileDelim)>
+  <h1>Mura cannot be installed under a directory called &quot;<strong>mura</strong>&quot; &hellip; please move or rename and try to install again.</h1>
+  <cfabort />
+</cfif>
+
 <!--- if renderSetup is not found or is false then do not render --->
 <cfif NOT isDefined( "renderSetup" ) OR NOT renderSetup>
   <cfabort />
@@ -107,7 +117,7 @@ to your own modified versions of Mura CMS.
 </cfif>
 <cfparam name="FORM.production_context" default="#context#" />
 <!--- state we are done --->
-<cfif isDefined( "FORM.#cookie.setupSubmitButtonComplete#" )>
+<cfif isDefined( "FORM.#application.setupSubmitButtonComplete#" )>
   <!--- state we are done --->
   <!---
   <cfset settingsIni.set( "settings", "installed", 1 ) />
@@ -118,7 +128,7 @@ to your own modified versions of Mura CMS.
   <cflocation url="#context#/admin/index.cfm?appreload" addtoken="false" />
 </cfif>
 <!--- run save process --->
-<cfif isDefined( "FORM.#cookie.setupSubmitButton#" )>
+<cfif isDefined( "FORM.#application.setupSubmitButton#" )>
   <!--- save settings --->
   <cfset validSections = "production,settings" />
   <!--- ************************ --->
@@ -253,10 +263,27 @@ to your own modified versions of Mura CMS.
               <cffile action="read" file="#getDirectoryFromPath( getCurrentTemplatePath() )#/db/#FORM.production_dbtype#.sql" variable="sql" />
             </cfif>
             --->
-          <cfset form.production_dbtablespace=ucase(form.production_dbtablespace)>
-          <cfsavecontent variable="sql">
-            <cfinclude template="db/#FORM.production_dbtype#.sql">
-          </cfsavecontent>
+        
+           <cfdbinfo 
+                name="rsCheck"
+                datasource="#FORM.production_datasource#" 
+                username="#FORM.production_dbusername#" 
+                password="#FORM.production_dbpassword#"
+                type="version">
+
+          <cfif rsCheck.database_productname eq 'H2'>
+            <cfsavecontent variable="sql">
+              <cfinclude template="db/h2.sql">
+            </cfsavecontent>
+          <cfelse>
+            <cfparam name="form.production_mysqlengine" default="InnoDB">
+            <cfset storageEngine="ENGINE=#form.production_mysqlengine# DEFAULT CHARSET=utf8">
+            <cfset form.production_dbtablespace=ucase(form.production_dbtablespace)>
+            
+            <cfsavecontent variable="sql">
+              <cfinclude template="db/#FORM.production_dbtype#.sql">
+            </cfsavecontent>
+          </cfif>
           <!---
           <cfsavecontent variable="sql">
             <cfinclude template="db/#FORM.production_dbtype#.sql">
@@ -269,14 +296,10 @@ to your own modified versions of Mura CMS.
               <cfcase value="mssql">
                 <!--- if we are working with a SQL db we go ahead and delimit with GO so we can loop over each sql even --->  
                 <cfquery name="MSSQLversion" datasource="#FORM.production_datasource#" username="#FORM.production_dbusername#" password="#FORM.production_dbpassword#">
-                  EXEC sp_MSgetversion
+                  SELECT CONVERT(varchar(100), SERVERPROPERTY('ProductVersion')) as version
                 </cfquery>
-                <cftry>
-                  <cfset MSSQLversion=left(MSSQLversion.CHARACTER_VALUE,1)>
-                  <cfcatch>
-                    <cfset MSSQLversion=mid(MSSQLversion.COMPUTED_COLUMN_1,1,find(".",MSSQLversion.COMPUTED_COLUMN_1)-1)>
-                  </cfcatch>
-                </cftry>
+                <cfset MSSQLversion=listFirst(MSSQLversion.version,".")>
+
                 <cfset sql = REReplaceNoCase( sql, "\nGO", ";", "ALL") />
                 <cfset aSql = ListToArray(sql, ';')>
                 <!--- loop over items --->
@@ -587,7 +610,7 @@ to your own modified versions of Mura CMS.
     <!---  <div class="container"> --->
     <h1>Mura Set Up</h1>
     <cfif len( trim( message ) )>
-      <p class="error">#message#</p>
+      <p class="alert alert-error">#message#</p>
     </cfif>
     
     <!--- need to pass on form object to JS to avoid exception, also added try/catch in admin js (bsoylu 6/7/2010) --->
@@ -602,17 +625,18 @@ to your own modified versions of Mura CMS.
       }
 
     </script>
-    <form id="frm" class="form-horizontal<cfif isDefined( "FORM.#cookie.setupSubmitButton#" ) AND errorType IS ""> install-complete<cfelse> setup-form</cfif>" name="frm" action="index.cfm" method="post" onsubmit="return processInstallFrm(this);" onclick="return validateForm(this);">
+    <form id="frm" class="form-horizontal<cfif isDefined( "FORM.#application.setupSubmitButton#" ) AND errorType IS ""> install-complete<cfelse> setup-form</cfif>" name="frm" action="index.cfm" method="post" onsubmit="return processInstallFrm(this);" onclick="return validateForm(this);">
    
-      <cfif isDefined( "FORM.#cookie.setupSubmitButton#" ) AND errorType IS "">
+      <cfif isDefined( "FORM.#application.setupSubmitButton#" ) AND errorType IS "">
         <div id="installationComplete" class="alert alert-success">
           <p>Mura is now set up and ready to use.</p>
         </div>
+       
         <div class="alert alert-error">
           <p>When you are done with setup, it is recommended you remove the "/config/setup" directory to maintain security. Once deleted, all settings can be edited in "/config/settings.ini.cfm" directly.</p></div>
-          
+         
         <div id="finishSetUp" class="form-actions">
-        	<input type="submit" class="btn" name="#cookie.setupSubmitButtonComplete#" value="Login to Mura" />
+        	<input type="submit" class="btn" name="#application.setupSubmitButtonComplete#" value="Login to Mura" />
         </div>
  
       
@@ -807,7 +831,7 @@ to your own modified versions of Mura CMS.
         </div>
       </div>
       <div class="form-actions">
-        <input class="btn" type="submit" name="#cookie.setupSubmitButton#" value="Save Settings" />
+        <input class="btn" type="submit" name="#application.setupSubmitButton#" value="Save Settings" />
       </div>
       </cfif>
     </form>

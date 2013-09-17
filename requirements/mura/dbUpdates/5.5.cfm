@@ -1,4 +1,5 @@
 ﻿<cfset rsCheck=dbTableColumns("tcontentfeeds")>
+<cfset dbversion=dbUtility.version().database_productname>
 
 <cfquery name="rsCheck" dbtype="query">
 	select * from rsCheck where lower(rsCheck.column_name) like 'imagesize'
@@ -101,24 +102,6 @@
 	
 <cfswitch expression="#getDbType()#">
 <cfcase value="mssql">
-	
-<cfquery name="MSSQLversion" datasource="#getDatasource()#" username="#getDBUsername()#" password="#getDbPassword()#">
-	EXEC sp_MSgetversion
-</cfquery>
-	
-<cftry>
-	<cfset MSSQLversion=left(MSSQLversion.CHARACTER_VALUE,1)>
-	<cfcatch>
-		<cfset MSSQLversion=mid(MSSQLversion.COMPUTED_COLUMN_1,1,find(".",MSSQLversion.COMPUTED_COLUMN_1)-1)>
-	</cfcatch>
-</cftry>
-
-<cfif MSSQLversion neq 8>
-	<cfset MSSQLlob="[nvarchar](max) NULL">
-<cfelse>
-	<cfset MSSQLlob="[ntext]">
-</cfif>
-
 <cfquery datasource="#getDatasource()#" username="#getDBUsername()#" password="#getDbPassword()#">
 ALTER TABLE tcontentfeeds ADD displayList #MSSQLlob# 
 </cfquery>
@@ -283,7 +266,7 @@ ALTER TABLE tcontentfeeds ADD displayList clob
 </cfcase>
 <cfcase value="mysql">
 	<cfquery datasource="#getDatasource()#" username="#getDBUsername()#" password="#getDbPassword()#">
-	ALTER TABLE tcontent MODIFY column urltitle varchar(255)
+	ALTER TABLE tcontent ALTER column urltitle varchar(255)
 	</cfquery>
 </cfcase>
 <cfcase value="nuodb">
@@ -317,7 +300,13 @@ ALTER TABLE tcontentfeeds ADD displayList clob
 		
 		<cfif rsSubCheck.type_name neq "text">
 			<cfquery datasource="#getDatasource()#" username="#getDBUsername()#" password="#getDbPassword()#">
-			ALTER TABLE tcontent MODIFY column #i# text
+			ALTER TABLE 
+			tcontent 
+			<cfif dbversion eq 'H2'>
+				ALTER
+			<cfelse>
+				MODIFY
+			</cfif> column #i# text
 			</cfquery>
 		</cfif>
 	</cfloop>
@@ -472,7 +461,13 @@ ALTER TABLE tcontentfeeds ADD displayList clob
 </cfcase>
 <cfcase value="mysql">
 	<cfquery datasource="#getDatasource()#" username="#getDBUsername()#" password="#getDbPassword()#">
-	ALTER TABLE tsettings MODIFY column domain varchar(255)
+	ALTER TABLE tsettings 
+	<cfif dbversion eq 'H2'>
+		ALTER
+	<cfelse>
+		MODIFY
+	</cfif>
+	column domain varchar(255)
 	</cfquery>
 </cfcase>
 <cfcase value="nuodb">
@@ -513,7 +508,13 @@ ALTER TABLE tcontentfeeds ADD displayList clob
 </cfcase>
 <cfcase value="mysql">
 	<cfquery datasource="#getDatasource()#" username="#getDBUsername()#" password="#getDbPassword()#">
-	ALTER TABLE tsettings MODIFY column columnNames text
+	ALTER TABLE tsettings 
+	<cfif dbversion eq 'H2'>
+		ALTER
+	<cfelse>
+		MODIFY
+	</cfif>
+	column columnNames text
 	</cfquery>
 </cfcase>
 <cfcase value="nuodb">	

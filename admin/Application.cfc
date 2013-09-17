@@ -140,6 +140,77 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		</cfif>
 		
 	</cffunction>
+
+	<cffunction name="onRequestStart" output="true">
+		<cftry>
+			<cfif not (structKeyExists(application.settingsManager,'validate') and application.settingsManager.validate() and isStruct(application.configBean.getAllValues()))>
+				<cfset application.appInitialized=false>
+			</cfif>
+			<cfcatch>
+				<cfset application.appInitialized=false>
+				<cfset request.muraAppreloaded=false>
+			</cfcatch>
+		</cftry>
+
+		<cftry>
+			<cfif application.appInitialized and isDefined('application.scriptProtectionFilter') and application.configBean.getScriptProtect()>
+
+				<cfset variables.remoteIPHeader=application.configBean.getValue("remoteIPHeader")>
+				<cfif len(variables.remoteIPHeader)>
+					<cftry>
+						<cfif StructKeyExists(GetHttpRequestData().headers, variables.remoteIPHeader)>
+					    	<cfset request.remoteAddr = GetHttpRequestData().headers[remoteIPHeader]>
+					    <cfelse>
+							<cfset request.remoteAddr = CGI.REMOTE_ADDR>
+					    </cfif>
+						<cfcatch type="any"><cfset request.remoteAddr = CGI.REMOTE_ADDR></cfcatch>
+					</cftry>
+				<cfelse>
+					<cfset request.remoteAddr = CGI.REMOTE_ADDR>
+				</cfif>	
+
+				<cfif isDefined("url")>
+					<cfset application.scriptProtectionFilter.scan(
+												object=url,
+												objectname="url",
+												ipAddress=request.remoteAddr,
+												useTagFilter=true,
+												useWordFilter=true)>
+				</cfif>
+				<cfif isDefined("form")>
+					<cfset application.scriptProtectionFilter.scan(
+												object=form,
+												objectname="form",
+												ipAddress=request.remoteAddr)>
+				</cfif>
+
+				<cftry>
+					<cfif isDefined("cgi")>
+						<cfset application.scriptProtectionFilter.scan(
+													object=cgi,
+													objectname="cgi",
+													ipAddress=request.remoteAddr,
+													useTagFilter=true,
+													useWordFilter=true,
+													fixValues=false)>
+					</cfif>
+					<cfif isDefined("cookie")>
+						<cfset application.scriptProtectionFilter.scan(
+													object=cookie,
+													objectname="cookie",
+													ipAddress=request.remoteAddr,
+													useTagFilter=true,
+													useWordFilter=true,
+											        fixValues=false)>
+					</cfif>
+					<cfcatch></cfcatch>
+				</cftry>
+			</cfif>
+			<cfcatch></cfcatch>
+		</cftry>
+
+		<cfset super.onRequestStart(argumentCollection=arguments)>
+	</cffunction>
 	
 	<cffunction name="setupRequest" output="false">
 		
@@ -152,10 +223,28 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfset var local = structNew() />
 		
 		<cfinclude template="../config/appcfc/onRequestStart_include.cfm">
-				
+
+		<cfif application.scriptProtectionFilter.isBlocked(request.remoteAddr) eq true>
+			<cfset application.eventManager.announceEvent("onGlobalThreatDetect",createObject("component","mura.event"))>
+		</cfif> 
+
 		<cfif right(cgi.script_name, Len("index.cfm")) NEQ "index.cfm" and right(cgi.script_name, Len("error.cfm")) NEQ "error.cfm" AND right(cgi.script_name, 3) NEQ "cfc">
 			<cflocation url="index.cfm" addtoken="false">
 		</cfif>	
+
+		<cfset request.context.currentURL="index.cfm" >
+	
+		<cfset var qrystr="">
+		<cfset var item="">
+		<cfloop collection="#url#" item="item">
+			<cftry>	
+				<cfset qrystr="#qrystr#&#item#=#url[item]#">	
+			<cfcatch ></cfcatch>
+			</cftry>
+		</cfloop>
+		<cfif len(qrystr)>
+			<cfset request.context.currentURL=request.context.currentURL & "?" & qrystr>
+		</cfif>
 
 		<cfscript>
 			StructAppend(request.context, url, "no");
@@ -181,8 +270,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfparam name="session.keywords" default="">
 		<cfparam name="session.alerts" default="#structNew()#">
 		<cfparam name="cookie.rb" default="">
-		<cfset request.context.currentURL="index.cfm?" & cgi.query_string>
-	
+
 		<cfif len(request.context.rb)>
 			<cfset session.rb=request.context.rb>
 			<cfcookie name="rb" value="#session.rb#" expires="never" />
@@ -227,7 +315,8 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		
 		
 		<cfset request.event=createObject("component", "mura.event").init(request.context)>
-		
+		<cfset request.context.$=request.event.getValue('MuraScope')>
+
 		<cfif request.context.moduleid neq ''>
 			<cfset session.moduleid = request.context.moduleid>
 		</cfif>

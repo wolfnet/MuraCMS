@@ -163,6 +163,22 @@
 			</cfquery>
 			</cfcase>
 			--->
+			<cfcase value="mssql">
+			<cfquery
+				name="rs" 
+				datasource="#variables.configBean.getDatasource()#"
+				username="#variables.configBean.getDbUsername()#"
+				password="#variables.configBean.getDbPassword()#">
+					select column_name,
+					character_maximum_length column_size,
+					data_type type_name,
+					column_default column_default_value,
+					is_nullable,
+					numeric_precision data_precision
+					from INFORMATION_SCHEMA.COLUMNS
+					where TABLE_NAME='#arguments.table#'
+			</cfquery>
+			</cfcase>
 			<cfdefaultcase>
 				<cfdbinfo 
 				name="rs"
@@ -287,7 +303,10 @@
 					<cfif arguments.autoincrement>
 						,PRIMARY KEY(#arguments.column#)
 					</cfif>
-					) ENGINE=InnoDB DEFAULT CHARSET=utf8
+					)
+					<cfif version().database_productname neq 'h2'>
+						ENGINE=#variables.configBean.getMySQLEngine()# DEFAULT CHARSET=utf8
+					</cfif>
 				</cfif>
 			</cfquery>
 		</cfcase>
@@ -409,7 +428,13 @@
 			</cfcase>
 			<cfcase value="mysql">
 				<cfquery datasource="#variables.configBean.getDatasource()#" username="#variables.configBean.getDbUsername()#" password="#variables.configBean.getDbPassword()#">
-					ALTER TABLE #arguments.table# MODIFY COLUMN #arguments.column# <cfif arguments.autoincrement>INT(10) NOT NULL AUTO_INCREMENT<cfelse>#transformDataType(arguments.datatype,arguments.length)# <cfif not arguments.nullable> not null </cfif> default <cfif arguments.default eq 'null' or listFindNoCase('int,tinyint',arguments.datatype)>#arguments.default#<cfelse>'#arguments.default#'</cfif></cfif>
+					ALTER TABLE #arguments.table# 
+					<cfif version().database_productname eq 'H2'>
+						ALTER	
+					<cfelse>
+						MODIFY
+					</cfif> 
+					COLUMN #arguments.column# <cfif arguments.autoincrement>INT(10) NOT NULL AUTO_INCREMENT<cfelse>#transformDataType(arguments.datatype,arguments.length)# <cfif not arguments.nullable> not null </cfif> default <cfif arguments.default eq 'null' or listFindNoCase('int,tinyint',arguments.datatype)>#arguments.default#<cfelse>'#arguments.default#'</cfif></cfif>
 				</cfquery>
 			</cfcase>
 			<cfcase value="nuodb">
@@ -548,22 +573,38 @@
 					<cfreturn "datetime">
 				</cfcase>
 				<cfcase value="text,longtext">
-					<cfquery name="MSSQLversion" datasource="#variables.configBean.getDatasource()#" username="#variables.configBean.getDbUsername()#" password="#variables.configBean.getDbPassword()#">
-						EXEC sp_MSgetversion
-					</cfquery>
-	
 					<cftry>
-						<cfset MSSQLversion=left(MSSQLversion.CHARACTER_VALUE,1)>
-						<cfcatch>
-							<cfset MSSQLversion=mid(MSSQLversion.COMPUTED_COLUMN_1,1,find(".",MSSQLversion.COMPUTED_COLUMN_1)-1)>
-						</cfcatch>
+						<cfquery name="MSSQLversion"  
+							datasource="#variables.configBean.getDatasource()#"
+							username="#variables.configBean.getDbUsername()#"
+							password="#variables.configBean.getDbPassword()#">
+							SELECT CONVERT(varchar(100), SERVERPROPERTY('ProductVersion')) as version
+						</cfquery>
+						<cfset MSSQLversion=listFirst(MSSQLversion.version,".")>
+						<cfcatch></cfcatch>
 					</cftry>
+
+					<cfif not MSSQLversion>
+						<cfquery name="MSSQLversion"
+							datasource="#variables.configBean.getDatasource()#"
+							username="#variables.configBean.getDbUsername()#"
+							password="#variables.configBean.getDbPassword()#">
+							EXEC sp_MSgetversion
+						</cfquery>
 					
-					<cfif MSSQLversion neq 8>
-						<cfreturn "nvarchar(max)">
-					<cfelse>
-						<cfreturn "ntext">
+						<cftry>
+							<cfset MSSQLversion=left(MSSQLversion.CHARACTER_VALUE,1)>
+							<cfcatch>
+								<cfset MSSQLversion=mid(MSSQLversion.COMPUTED_COLUMN_1,1,find(".",MSSQLversion.COMPUTED_COLUMN_1)-1)>
+							</cfcatch>
+						</cftry>
 					</cfif>
+
+					<cfif MSSQLversion neq 8>
+						<cfreturn "[nvarchar](max)">
+					<cfelse>
+						<cfreturn "[ntext]">
+					</cfif>		
 				</cfcase>
 				<cfcase value="float">
 					<cfreturn "float">
@@ -887,14 +928,14 @@
 	<cfargument name="table">
 	<cfset var index={}>
 	<cfset var indexArray=[]>
-
+	
  	<cfif rs.recordcount>
 		<cfloop query="rs">
 			<cfset index={table=arguments.table,
 					column=rs.column_name,
 					name=rs.index_name
 					}>
-			<cfif rs.NON_UNIQUE>
+			<cfif not isBoolean(rs.NON_UNIQUE) or not rs.NON_UNIQUE>
 				<cfset index.unique=false>
 			<cfelse>
 				<cfset index.unique=true>
@@ -953,7 +994,7 @@
 		type="index">
 	
 	<cfquery name="rsCheck" dbtype="query">
-		select * from rsCheck where lower(rsCheck.INDEX_NAME) like 'primary'
+		select * from rsCheck where lower(rsCheck.INDEX_NAME) like 'primary%'
 		or lower(rsCheck.INDEX_NAME) like 'pk_%'
 	</cfquery>
 
@@ -973,7 +1014,7 @@
 		type="index">
 	
 	<cfquery name="rsCheck" dbtype="query">
-		select * from rsCheck where lower(rsCheck.INDEX_NAME) like 'primary'
+		select * from rsCheck where lower(rsCheck.INDEX_NAME) like 'primary%'
 		or lower(rsCheck.INDEX_NAME) like 'pk_%'
 	</cfquery>
 

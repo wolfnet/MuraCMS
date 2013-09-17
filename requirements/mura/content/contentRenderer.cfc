@@ -60,6 +60,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 <cfset this.imageInList="jpg,jpeg,png,gif">
 <cfset this.directImages=true/>
 <cfset this.personalization="user">
+<cfset this.hasEditableObjects=false>
 <cfif isDefined('url.muraadminpreview')>
 	<cfset this.showAdminToolBar=false/>
 	<cfset this.showMemberToolBar=false/>
@@ -74,7 +75,6 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 <!--- renderHTMLHead has been deprecated in favor of renderHTMLQueues---->
 <cfset this.renderHTMLHead=true/>
 <cfset this.renderHTMLQueues=true/>
-<cfset this.enableMuraTag=getConfigBean().getEnableMuraTag() />
 <cfset this.crumbdata=arrayNew(1)/>
 <cfset this.listFormat="dl">
 <cfset this.headline="h2"/>
@@ -102,6 +102,8 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 <cfset this.ulPaginationWrapperClass="pagination">
 <cfset this.formWrapperClass="well">
 <cfset this.generalWrapperClass="well">
+<cfset this.aNotCurrentClass="">
+<cfset this.size=50>
 
 
 <cffunction name="init" returntype="any" access="public" output="false">
@@ -123,6 +125,10 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 
 	<cfset variables.contentGateway=getBean('contentGateway')>
 
+	<cfif not isDefined('this.enableMuraTag')>
+		<cfset this.enableMuraTag=getConfigBean().getEnableMuraTag() />
+	</cfif>
+	
 <cfreturn this />
 </cffunction>
 
@@ -430,10 +436,10 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		 <ul class="#arguments.class#">
 		<cfloop from="#crumbLen#" to="2" index="I" step="-1">
 		<cfif arguments.crumbdata[i].restricted eq 1><cfset locked="locked"></cfif>
-		<li class="#renderIcon(arguments.crumbdata[i])# #locked#<cfif arguments.crumbdata[i].type eq 'File'> file</cfif>"<cfif arguments.crumbdata[i].type eq 'File'> data-filetype="#renderIcon(arguments.crumbdata[i])#"</cfif>>#HTMLEditformat(arguments.crumbdata[I].menutitle)# &raquo;</li>
+		<li class="#renderIcon(arguments.crumbdata[i])# #locked#<cfif arguments.crumbdata[i].type eq 'File'> file</cfif>"<cfif arguments.crumbdata[i].type eq 'File'> data-filetype="#renderIcon(arguments.crumbdata[i])#"</cfif>> #HTMLEditformat(arguments.crumbdata[I].menutitle)# &raquo;</li>
 		</cfloop>
 		<cfif locked eq "locked" or arguments.crumbdata[1].restricted eq 1><cfset lastlocked="locked"></cfif>
-		<li class="#renderIcon(arguments.crumbdata[1])# #lastlocked#<cfif arguments.crumbdata[i].type eq 'File'> file</cfif>"<cfif arguments.crumbdata[i].type eq 'File'> data-filetype="#renderIcon(arguments.crumbdata[i])#"</cfif>><strong><cfif arguments.crumbdata[1].type eq 'Page' or arguments.crumbdata[1].type eq 'Folder' or arguments.crumbdata[1].type eq 'Calendar'>#HTMLEditformat(arguments.crumbdata[1].menutitle)#<cfelse>#HTMLEditformat(crumbdata[1].menutitle)#</cfif></strong></li></ul></cfoutput></cfsavecontent>
+		<li class="#renderIcon(arguments.crumbdata[1])# #lastlocked#<cfif arguments.crumbdata[i].type eq 'File'> file</cfif>"<cfif arguments.crumbdata[i].type eq 'File'> data-filetype="#renderIcon(arguments.crumbdata[i])#"</cfif>><strong><cfif arguments.crumbdata[1].type eq 'Page' or arguments.crumbdata[1].type eq 'Folder' or arguments.crumbdata[1].type eq 'Calendar'> #HTMLEditformat(arguments.crumbdata[1].menutitle)#<cfelse> #HTMLEditformat(crumbdata[1].menutitle)#</cfif></strong></li></ul></cfoutput></cfsavecontent>
 		<cfreturn content />
 </cffunction>
 
@@ -465,6 +471,8 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfargument name="ulNestedClass" required="true" default="#this.ulNestedClass#">
 		<cfargument name="ulNestedCustomString" required="true" default="#this.ulNestedCustomString#">
 		<cfargument name="openCurrentOnly" required="true" default="false">
+		<cfargument name="aNotCurrentClass" required="true" default="#this.aNotCurrentClass#">
+		<cfargument name="size" required="true" default="#this.size#">
 
 		<cfset var rsSection=arguments.rs>
 		<cfset var adjust=0>
@@ -480,7 +488,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfset var started=false>
 		
 		<cfif not isQuery(rsSection)>
-			<cfset rsSection=variables.contentGateway.getKids('00000000000000000000000000000000000',variables.event.getValue('siteID'),arguments.contentid,arguments.type,arguments.today,50,'',0,arguments.sortBy,arguments.sortDirection,arguments.categoryID,arguments.relatedID)>
+			<cfset rsSection=variables.contentGateway.getKids('00000000000000000000000000000000000',variables.event.getValue('siteID'),arguments.contentid,arguments.type,arguments.today,Val(arguments.size),'',0,arguments.sortBy,arguments.sortDirection,arguments.categoryID,arguments.relatedID)>
 		</cfif>
 
 		<cfif isDefined("arguments.ulTopClass") and arguments.currDepth eq 1>
@@ -541,6 +549,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 				<cfset linkArgs=structNew()>
 				<cfset linkArgs.aHasKidsClass=arguments.aHasKidsClass>
 				<cfset linkArgs.aHasKidsCustomString=arguments.aHasKidsCustomString>
+				<cfset linkArgs.aNotCurrentClass=arguments.aNotCurrentClass>
 				<cfset linkArgs.aCurrentClass=arguments.aCurrentClass>
 				<cfset linkArgs.aCurrentCustomString=arguments.aCurrentCustomString>
 				<cfset linkArgs.type=rsSection.type>
@@ -1029,7 +1038,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 <cfargument name="siteID">
 <cfargument name="fileID">
 <cfargument name="fileExt">
-<cfargument name="size" required="true" default="large">
+<cfargument name="size" required="true" default="undefined">
 <cfargument name="direct" required="true" default="#this.directImages#">
 <cfargument name="complete" type="boolean" required="true" default="false">
 <cfargument name="height" default=""/>
@@ -1061,6 +1070,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	<cfargument name="aCurrentClass" required="true" default="#this.aCurrentClass#">
 	<cfargument name="aCurrentCustomString" required="true" default="#this.aCurrentCustomString#">
 	<cfargument name="isParent" required="true" default="false">
+	<cfargument name="aNotCurrentClass" required="true" default="#this.aNotCurrentClass#">
 			
 	<cfset var link ="">
 	<cfset var href ="">
@@ -1071,13 +1081,15 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	</cfif>
 	<cfif arguments.showCurrent>					
 		<cfset theClass=listAppend(theClass,arguments.aCurrentClass," ") />
+	<cfelseif len(arguments.aNotCurrentClass)>
+		<cfset theClass=listAppend(theClass,arguments.aNotCurrentClass," ") />
 	</cfif>
 	<cfif arguments.isParent>					
 		<cfset theClass=listAppend(theClass,arguments.aHasKidsClass," ") />
 	</cfif>
 		
 	<cfset href=createHREF(arguments.type,arguments.filename,arguments.siteid,arguments.contentid,arguments.target,iif(arguments.filename eq variables.event.getValue('contentBean').getfilename(),de(''),de(arguments.targetParams)),arguments.queryString,arguments.context,arguments.stub,arguments.indexFile,arguments.complete,arguments.showMeta)>
-	<cfset link='<a href="#href#"#iif(len(theClass),de(' class="#theClass#"'),de(""))##iif(len(arguments.id),de(' id="#arguments.id#"'),de(""))##iif(arguments.showCurrent,de(' #arguments.aCurrentCustomString#'),de(""))##iif(arguments.isParent and len(arguments.aHasKidsCustomString),de(' #arguments.aHasKidsCustomString#'),de(""))#>#HTMLEditFormat(arguments.title)#</a>' />
+	<cfset link='<a href="#href#"#iif(len(theClass),de(' class="#theClass#"'),de(""))##iif(len(arguments.id),de(' id="#arguments.id#"'),de(""))##iif(arguments.showCurrent,de(' #replace(arguments.aCurrentCustomString,"##","####","all")#'),de(""))##iif(arguments.isParent and len(arguments.aHasKidsCustomString),de(' #replace(arguments.aHasKidsCustomString,"##","####","all")#'),de(""))#>#HTMLEditFormat(arguments.title)#</a>' />
 	<cfreturn link>
 </cffunction>
 
@@ -1285,11 +1297,12 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 			<cfset editableControl.editLink = editableControl.editLink & "&amp;orderno=" & arguments.orderno>
 			<cfset editableControl.editLink = editableControl.editLink & "&amp;siteID=" & arguments.siteID>
 		</cfif>
-	</cfif>
 
-	<cfif showEditable>
+		<cfset this.hasEditableObjects=true>
+	
 		<cfset theObject=variables.$.renderEditableObjectHeader(editableControl.class)>
 	</cfif>
+
 	<cfswitch expression="#arguments.object#">
 		<cfcase value="sub_nav"><cfset theObject=theObject & dspObject_Render(arguments.siteid,arguments.object,arguments.objectid,"nav/dsp_sub.cfm",cacheKeyContentId)></cfcase>
 		<cfcase value="peer_nav"><cfset theObject=theObject & dspObject_Render(arguments.siteid,arguments.object,arguments.objectid,"nav/dsp_peer.cfm",cacheKeyContentId)></cfcase>
@@ -1417,6 +1430,8 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	<cfargument name="crumbseparator" type="string" default="&raquo;&nbsp;">
 	<cfargument name="showMetaImage" type="numeric" default="1">
 	<cfargument name="includeMetaHREF" type="boolean" default="true" />
+	<cfargument name="bodyAttribute">
+	<cfargument name="titleAttribute">
 	
 	<cfset var theIncludePath = variables.event.getSite().getIncludePath() />
 	<cfset var str = "" />
@@ -1463,7 +1478,9 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 				</cfswitch>
 			<cfelse>
 				 <cfoutput>
-					<cfif arguments.pageTitle neq ''>
+				 	<cfif structKeyExists(arguments,'titleAttribute')>
+				 		<#getHeaderTag('headline')# class="pageTitle">#renderEditableAttribute(attribute=arguments.titleAttribute,required=true)#</#getHeaderTag('headline')#>
+					<cfelseif arguments.pageTitle neq ''>
 						<#getHeaderTag('headline')# class="pageTitle"><cfif arguments.pageTitle eq $.content('title')>#renderEditableAttribute(attribute='title',required=true)#<cfelse>#arguments.pageTitle#</cfif></#getHeaderTag('headline')#>
 					</cfif>
 					<cfif arguments.crumblist>
@@ -1550,7 +1567,13 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 								</cfoutput>	
 						</cfif>		
 						<cfoutput>
-							#renderEditableAttribute(attribute="body",type="htmlEditor")#	
+							<cfif structKeyExists(arguments,'bodyAttribute')>
+								#renderEditableAttribute(attribute=arguments.bodyAttribute,type="htmlEditor")#
+							<cfelseif $.content('body') eq arguments.body>
+								#renderEditableAttribute(attribute="body",type="htmlEditor")#
+							<cfelse>
+								#setDynamicContent(arguments.body)#
+							</cfif>		
 						</cfoutput>
 					</cfdefaultcase>
 					</cfswitch>
@@ -1609,7 +1632,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 <cffunction name="queryPermFilter" returntype="query" access="public" output="false">
 	<cfargument name="rawQuery" type="query">
 	
-	<cfreturn application.permUtility.queryPermFilter(arguments.rawQuery,newResultQuery(),variables.event.getValue('siteID'),variables.event.getValue('r').hasModuleAccess)/>
+	<cfreturn application.permUtility.queryPermFilter(arguments.rawQuery,'',variables.event.getValue('siteID'),variables.event.getValue('r').hasModuleAccess)/>
 </cffunction>
 	
 <cffunction name="newResultQuery" returntype="query" access="public" output="false">
@@ -1753,6 +1776,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfargument name="aCurrentCustomString" required="true" default="">
 		<cfargument name="ulNestedClass" required="true" default="">
 		<cfargument name="ulNestedCustomString" required="true" default="">
+		<cfargument name="aNotCurrentClass" required="true" default="#this.aNotCurrentClass#">
 
 		<cfset var rsSection=variables.contentGateway.getKids('00000000000000000000000000000000000',variables.event.getValue('siteID'),arguments.contentid,arguments.type,arguments.today,0,'',0,arguments.sortBy,arguments.sortDirection,'','','',true)>
 		<cfset var adjust=0>
@@ -1776,7 +1800,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfset var started=false>
 
 		<cfif isDefined("arguments.closePortals")>
-			<cfset arguments.closeLocaRepos=arguments.closePortals>
+			<cfset arguments.closeFolders=arguments.closePortals>
 		</cfif>
 
 		<cfif isDefined("arguments.openPortals")>
@@ -1820,7 +1844,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 
 				<cfset started=true>
 				<ul<cfif arguments.currDepth eq 1>#iif(arguments.id neq '',de(' id="#arguments.id#"'),de(''))##iif(arguments.menuClass neq '',de(' class="#arguments.menuClass#"'),de(''))#<cfelse><cfif len(arguments.ulNestedClass)> class="#arguments.ulNestedClass#"</cfif><cfif len(arguments.ulNestedCustomString)> #arguments.ulNestedCustomString#</cfif></cfif>>
-				<li class="first<cfif variables.event.getValue('contentBean').getcontentid() eq arguments.contentid> #arguments.liCurrentClass#</cfif>" id="navHome"<cfif len(arguments.liCurrentCustomString)> #arguments.liCurrentCustomString#</cfif>><a href="#homeLink#"<cfif len(arguments.aCurrentClass) and $.content('contentID') eq '00000000000000000000000000000000001'> class="#arguments.aCurrentClass#"</cfif><cfif len(arguments.aCurrentCustomString)> #arguments.aCurrentCustomString#</cfif>>#HTMLEditFormat(rsHome.menuTitle)#</a></li>
+				<li class="first<cfif variables.event.getValue('contentBean').getcontentid() eq arguments.contentid> #arguments.liCurrentClass#</cfif>" id="navHome"<cfif len(arguments.liCurrentCustomString)> #arguments.liCurrentCustomString#</cfif>><a href="#homeLink#"<cfif len(arguments.aCurrentClass) and $.content('contentID') eq '00000000000000000000000000000000001'> class="#arguments.aCurrentClass#"<cfelseif len(arguments.aNotCurrentClass)> class="#arguments.aNotCurrentClass#"</cfif><cfif len(arguments.aCurrentCustomString)> #arguments.aCurrentCustomString#</cfif>>#HTMLEditFormat(rsHome.menuTitle)#</a></li>
 			</cfif>
 			
 			<cfloop query="rsSection">
@@ -1906,6 +1930,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 			<cfset linkArgs.siteID=variables.event.getValue('siteID')>
 			<cfset linkArgs.querystring=arguments.querystring>
 			<cfset linkArgs.isParent=subnav>
+			<cfset linkArgs.aNotCurrentClass=arguments.aNotCurrentClass>
 			<cfset link=addlink(argumentCollection=linkArgs)>
 			
 			</cfsilent>
@@ -1931,10 +1956,17 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	<cfargument name="openFolders" type="string" default="">
 	<cfargument name="class" type="string" default="">
 	<cfargument name="showCurrentChildrenOnly" type="boolean" default="false">
+	<cfargument name="aHasKidsClass" type="string" default="">
+	<cfargument name="aHasKidsCustomString" type="string" default="">
 
 	<cfset var thenav="" />
 	<cfset var topIndex= arrayLen(this.crumbdata)-this.navOffSet />
 	<cfset var tracePoint=0>
+
+	<!--- hack or issue with bootstrap that breaks link with kids --->
+	<cfif arguments.aHasKidsClass eq 'dropdown-toggle' and arguments.aHasKidsCustomString eq 'role="button" data-toggle="dropdown" data-target="##"'>
+		<cfset arguments.aHasKidsCustomString=''>
+	</cfif>
 
 	<cfif isDefined("arguments.closePortals")>
 		<cfset arguments.closeFolders=arguments.closePortals>
@@ -2005,7 +2037,8 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 <cffunction name="renderFile" output="true" access="public">
 <cfargument name="fileID" type="string">
 <cfargument name="method" type="string" required="true" default="inline">
-	<cfset getBean('fileManager').renderFile(arguments.fileid,arguments.method) />
+<cfargument name="size" type="string" required="true" default="">
+	<cfset getBean('fileManager').renderFile(arguments.fileid,arguments.method,arguments.size) />
 </cffunction>
 
 <cffunction name="renderSmall" output="true" access="public">
@@ -2028,13 +2061,14 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 <cffunction name="getCurrentURL" access="public" returntype="string" output="false">
 <cfargument name="complete" required="true" type="boolean" default="true" />
 <cfargument name="injectVars" required="true" type="string" default="" />
+<cfargument name="filterVars" required="true" type="boolean" default="true" />
 	<cfset var qrystr=''>
 	<cfset var host=''>
 	<cfset var item = "" />
 	
 	<cfloop collection="#url#" item="item">
-		<cfif not listFindNoCase('NOCACHE,PATH,DELETECOMMENTID,APPROVEDCOMMENTID,LOADLIST,INIT,SITEID,DISPLAY,#ucase(application.appReloadKey)#',item) 
-			 and not (item eq 'doaction' and url[item] eq 'logout') >	
+		<cfif not arguments.filterVars and item neq 'path' or (not listFindNoCase('NOCACHE,PATH,DELETECOMMENTID,APPROVEDCOMMENTID,LOADLIST,INIT,SITEID,DISPLAY,#ucase(application.appReloadKey)#',item) 
+			 and not (item eq 'doaction' and url[item] eq 'logout')) >	
 			<cftry>
 			<cfif len(qrystr)>	
 					<cfset qrystr="#qrystr#&#item#=#url[item]#">	
@@ -2119,10 +2153,12 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 
 	<cfset var body=arguments.str>
 	<cfset var errorStr="">
-	<cfset var regex1="(\{{|\[sava\]|\[mura\]).+?(\[/sava\]|\[/mura\]|}})">
+	<cfset var regex1="(\[sava\]|\[mura\]).+?(\[/sava\]|\[/mura\])">
 	<cfset var regex2="">
 	<cfset var finder=reFindNoCase(regex1,body,1,"true")>
 	<cfset var tempValue="">
+	
+	<cfparam name="this.enableMuraTag" default="true" />
 	
 	<!--- It the Mura tag is not enabled just return the submitted string --->
 	<cfif not this.enableMuraTag>
@@ -2147,6 +2183,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 			<cfset body=replaceNoCase(body,mid(body, finder.pos[1], finder.len[1]),'#trim(tempValue)#')>
 			<cfcatch>
 				<cfif application.configBean.getDebuggingEnabled()>
+					<cfset request.muraDynamicContentError=true>
 					<cfsavecontent variable="errorStr"><cfdump var="#cfcatch#"></cfsavecontent>
 					<cfset body=replaceNoCase(body,mid(body, finder.pos[1], finder.len[1]),errorStr)>
 				<cfelse>
@@ -2232,12 +2269,19 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 </cffunction>
 
 <cffunction name="getShowModal" output="false">
-<cfreturn ((listFind(session.mura.memberships,'S2IsPrivate;#application.settingsManager.getSite(variables.event.getValue('siteID')).getPrivateUserPoolID()#') or listFind(session.mura.memberships,'S2')) or (listFindNoCase("editor,author",variables.event.getValue('r').perm) and this.showMemberToolBar)) and getShowAdminToolBar() />
+<cfreturn getShowToolbar() or (this.showEditableObjects and this.hasEditableObjects and not request.muraExportHTML) />
+</cffunction>
+
+<cffunction name="getShowToolbar" output="false">
+<cfreturn ((listFind(session.mura.memberships,'S2IsPrivate;#application.settingsManager.getSite(variables.event.getValue('siteID')).getPrivateUserPoolID()#') or listFind(session.mura.memberships,'S2')) or (listFindNoCase("editor,author",variables.event.getValue('r').perm) and this.showMemberToolBar)) and getShowAdminToolBar() and not request.muraExportHTML />
 </cffunction>
 
 <cffunction name="hasFETools" output="false">
-	<!---and isDefined('cookie.fetDisplay') and cookie.fetDisplay neq 'none'--->
-	<cfreturn getShowModal() and not request.muraExportHTML >	
+<cfreturn getShowToolbar() />
+</cffunction>
+
+<cffunction name="getShowInlineEditor" output="false">
+<cfreturn  getShowToolbar() and this.showInlineEditor/>
 </cffunction>
 
 <cffunction name="renderHTMLQueue" output="false">
@@ -2271,7 +2315,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 				<cfif getJSLib() eq "prototype">
 					<cfset loadShadowboxJS() />
 				</cfif>
-				<cfif this.showEditableObjects and not request.muraExportHTML>
+				<cfif this.showEditableObjects>
 					<cfsavecontent variable="headerStr">
 					<cfoutput>
 					<link href="#variables.$.globalConfig('context')#/admin/assets/css/editableObjects.min.css" rel="stylesheet" type="text/css" />
@@ -2431,13 +2475,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	<cfargument name="location">
 	<cfargument name="addToken" required="true" default="false">
 	<cfargument name="statusCode" required="true" default="301">
-	
-	<cfif server.coldfusion.productname eq "ColdFusion Server" and listFirst(server.coldfusion.productversion) lt 8>
-		<cfset createObject("component","contentRedirectLimited").init(arguments.location,arguments.addToken) />
-	<cfelse>
-		<cfset createObject("component","contentRedirect").init(arguments.location,arguments.addToken,arguments.statusCode) />
-	</cfif>
-	
+	<cflocation url="#arguments.location#" addtoken="#arguments.addToken#" statusCode="#arguments.statusCode#">
 </cffunction>
 
 <cffunction name="getPagesQuery" returntype="query" output="false">
@@ -2545,8 +2583,11 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfreturn str>
 </cffunction>
 
+<cffunction name="generateListImageSyles" output="false" hint="for backward compatibility">
+	<cfreturn generateListImageStyles(argumentCollection=arguments)>
+</cffunction>
 
-<cffunction name="generateListImageSyles" output="false">
+<cffunction name="generateListImageStyles" output="false">
 	<cfargument name="size" default="small">
 	<cfargument name="height" default="auto">
 	<cfargument name="width" default="auto">
@@ -2569,17 +2610,15 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	</cfif>
 		
 	<cfif listFindNoCase('small,medium,large',arguments.size)>
-		<cfif variables.$.siteConfig('gallery#arguments.size#ScaleBy') eq 'x'>
-			<cfset imageStyles.paddingLeft=variables.$.siteConfig('gallery#arguments.size#Scale') + arguments.padding>
-			<cfset imageStyles.minHeight="auto">
-		<!--- Conditional styles for images constrained by height --->
-		<cfelseif variables.$.siteConfig('gallery#arguments.size#ScaleBy') eq 'y'>
-			<cfset imageStyles.paddingLeft="auto">
-			<cfset imageStyles.minHeight=variables.$.siteConfig('gallery#arguments.size#Scale') + arguments.padding>
+		<cfif isNumeric(variables.$.siteConfig('#arguments.size#ImageWidth'))>
+			<cfset imageStyles.paddingLeft=variables.$.siteConfig('#arguments.size#ImageWidth') + arguments.padding>
 		<cfelse>
-			<!--- Styles for images cropped to square --->
-			<cfset imageStyles.paddingLeft=variables.$.siteConfig('gallery#arguments.size#Scale') + arguments.padding>
-			<cfset imageStyles.minHeight=variables.$.siteConfig('gallery#arguments.size#Scale') + arguments.padding>
+			<cfset imageStyles.paddingLeft="auto">
+		</cfif>
+		<cfif isNumeric(variables.$.siteConfig('#arguments.size#ImageHeight'))>
+			<cfset imageStyles.minHeight=variables.$.siteConfig('#arguments.size#ImageHeight') + arguments.padding>
+		<cfelse>
+			<cfset imageStyles.minHeight="auto">
 		</cfif>
 	<cfelseif arguments.size eq 'custom'>
 		<cfif isNumeric(arguments.width)>
@@ -2657,7 +2696,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 
 	<cfswitch expression="#arguments.type#">
 	<cfcase value="Folder">
-		<cfreturn "icon-folder-open">
+		<cfreturn "icon-folder-open-alt">
 	</cfcase>
 	<cfcase value="Calendar">
 		<cfreturn "icon-calendar">
@@ -2675,7 +2714,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfreturn "icon-upload-alt">
 	</cfcase>
 	<cfcase value="File">
-		<cfreturn "icon-paper-clip">
+		<cfreturn "icon-file-alt">
 	</cfcase>
 	<cfdefaultcase>
 		<cfreturn "icon-file">
@@ -2728,6 +2767,10 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 
 			if(arguments.type eq 'HTMLEditor' ){
 				inline='';
+
+				if(not len(arguments.value)){
+					arguments.value="<p></p>";
+				}
 			}
 			
 			return '<div class="mura-editable inactive#inline#">

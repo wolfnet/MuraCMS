@@ -59,22 +59,24 @@ var siteManager = {
 
 		if(typeof(saveFormBuilder) != "undefined") saveFormBuilder();
 
-		if(document.contentForm.display.value == '2') {
-			var tempStart = document.contentForm.displayStart.value;
-			var tempStop = document.contentForm.displayStop.value;
-			//alert(tempStart);
-			if(isDate(tempStart, 'DISPLAY START DATE') == false) {
+		if(typeof(document.contentForm.display) != 'undefined'){
+			if(document.contentForm.display.value == '2') {
+				var tempStart = document.contentForm.displayStart.value;
+				var tempStop = document.contentForm.displayStop.value;
+				//alert(tempStart);
+				if(isDate(tempStart, 'DISPLAY START DATE') == false) {
 
-				alertDialog("Please enter a valid date in the 'Display Start Date' field");
-				return false;
-			} else if(tempStop != '' && isDate(tempStop, 'DISPLAY STOP DATE') == false) {
+					alertDialog("Please enter a valid date in the 'Display Start Date' field");
+					return false;
+				} else if(tempStop != '' && isDate(tempStop, 'DISPLAY STOP DATE') == false) {
 
-				alertDialog("Please enter a valid date in the 'Display Stop Date' field");
-				return false;
+					alertDialog("Please enter a valid date in the 'Display Stop Date' field");
+					return false;
+				}
+			} else {
+				document.contentForm.displayStart.value = "";
+				document.contentForm.displayStop.value = "";
 			}
-		} else {
-			document.contentForm.displayStart.value = "";
-			document.contentForm.displayStop.value = "";
 		}
 
 		if(document.contentForm.title.value == '') {
@@ -1083,7 +1085,7 @@ buttons: {
 						siteManager.initQuickEdits();
 
 						//The fadeIn in ie8 causes a rendering issue
-						if(!($.browser.msie && parseInt($.browser.version) == 8)) {
+						if(!(document.all && document.querySelector && !document.addEventListener)) {
 							node.find('.section:first').hide().fadeIn("slow");
 						}
 					} catch(err) {
@@ -1347,7 +1349,8 @@ buttons: {
 			featureStop: $('#mura-quickEdit-featureStop').val(),
 			stopHour: $('#mura-quickEdit-stopHour').val(),
 			stopMinute: $('#mura-quickEdit-stopMinute').val(),
-			stopDayPart: $('#mura-quickEdit-stopDayPart').val()
+			stopDayPart: $('#mura-quickEdit-stopDayPart').val(),
+			siteid: siteid
 		};
 
 		//alert(JSON.stringify(categoryAssignment));

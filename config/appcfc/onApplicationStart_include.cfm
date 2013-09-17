@@ -53,25 +53,28 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 <cfparam name="application.sessionTrackingThrottle" default="true"/>
 <cfparam name="application.instanceID" default="#createUUID()#" />
 <cfparam name="application.CFVersion" default="#listFirst(SERVER.COLDFUSION.PRODUCTVERSION)#" />
+<cfparam name="application.setupComplete" default="false" />
+<cfset request.muraAppreloaded=true>
+
 <!--- this is here for CF8 compatibility --->
 <cfset variables.baseDir=this.baseDir>
 <cfprocessingdirective pageencoding="utf-8"/>
 <cfsetting requestTimeout = "1000"> 
 
 <!--- do a settings setup check --->
-<cfif NOT structKeyExists( application, "setupComplete" ) OR (not application.appInitialized or structKeyExists(url,application.appReloadKey) )>
+<cfif NOT application.setupComplete OR (not application.appInitialized or structKeyExists(url,application.appReloadKey) )>
 	<cfif getProfileString( variables.basedir & "/config/settings.ini.cfm", "settings", "mode" ) eq "production">
 		<cfif directoryExists( variables.basedir & "/config/setup" )>
-			<cfset structDelete( application, "setupComplete") />
+			<cfset application.setupComplete = false />
 			<!--- check the settings --->
-			<cfparam name="cookie.setupSubmitButton" default="A#hash( createUUID() )#" />
-			<cfparam name="cookie.setupSubmitButtonComplete" default="A#hash( createUUID() )#" />
+			<cfparam name="application.setupSubmitButton" default="A#hash( createUUID() )#" />
+			<cfparam name="application.setupSubmitButtonComplete" default="A#hash( createUUID() )#" />
 			
 			<cfif trim( getProfileString( variables.basedir & "/config/settings.ini.cfm" , "production", "datasource" ) ) IS NOT ""
 					AND (
-						NOT isDefined( "FORM.#cookie.setupSubmitButton#" )
+						NOT isDefined( "FORM.#application.setupSubmitButton#" )
 						AND
-						NOT isDefined( "FORM.#cookie.setupSubmitButtonComplete#" )
+						NOT isDefined( "FORM.#application.setupSubmitButtonComplete#" )
 						)
 				>		
 						
@@ -81,22 +84,23 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 				<cfif NOT fileExists( variables.basedir & "/config/setup/index.cfm" )>
 					<cfthrow message="Your setup directory is incomplete. Please reset it up from the Mura source." />
 				</cfif>
-					
-				<cfset renderSetup = true />
-				<!--- go to the index.cfm page (setup) --->
-				<cfinclude template="/muraWRM/config/setup/index.cfm"><cfabort>
-				</cfif>	
-			</cfif>
+
+				<cfset application.setupComplete = false />
+			</cfif>	
+		<cfelse>
+			<cfset application.setupComplete = true />
+		</cfif>
 	<cfelse>		
 		<cfset application.setupComplete=true>
 	</cfif>
 </cfif>	
 
-<cfif (not application.appInitialized or structKeyExists(url,application.appReloadKey))>
+<cfif application.setupComplete and (not application.appInitialized or structKeyExists(url,application.appReloadKey))>
 <cflock name="appInitBlock#application.instanceID#" type="exclusive" timeout="200">	
 	<!--- Since the request may of had to wait double thak that code sitll needs to run --->
 	<cfif (not application.appInitialized or structKeyExists(url,application.appReloadKey))>
 		
+		<cfset application.appInitialized=false>
 		<cfset request.muraShowTrace=true>
 		
 		<cfset variables.iniPath = "#variables.basedir#/config/settings.ini.cfm" />
@@ -291,14 +295,14 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 					<cfdirectory action="create" directory="#application.configBean.getWebRoot()##application.configBean.getFileDelim()#plugins"> 
 				</cfcatch>
 			</cftry>
-		</cfif>
 		
-		<cfif not fileExists(variables.basedir & "/robots.txt")>	
-			<cfset application.serviceFactory.getBean("fileWriter").copyFile(source="#variables.basedir#/config/templates/robots.template.cfm", destination="#variables.basedir#/robots.txt")>
-		</cfif>
+			<cfif not fileExists(variables.basedir & "/robots.txt")>	
+				<cfset application.serviceFactory.getBean("fileWriter").copyFile(source="#variables.basedir#/config/templates/robots.template.cfm", destination="#variables.basedir#/robots.txt")>
+			</cfif>
 
-		<cfif not fileExists(variables.basedir & "/web.config")>	
-			<cfset application.serviceFactory.getBean("fileWriter").copyFile(source="#variables.basedir#/config/templates/web.config.template.cfm", destination="#variables.basedir#/web.config")>
+			<cfif not fileExists(variables.basedir & "/web.config")>	
+				<cfset application.serviceFactory.getBean("fileWriter").copyFile(source="#variables.basedir#/config/templates/web.config.template.cfm", destination="#variables.basedir#/web.config")>
+			</cfif>
 		</cfif>
 		
 		<cfif not structKeyExists(application,"plugins")>
@@ -321,7 +325,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 
 		<!--- Fire local onApplicationLoad events--->
 		<cfset variables.rsSites=application.settingsManager.getList() />
-		<cfset variables.themeHash=structNew()>
+		
 		<cfloop query="variables.rsSites">
 			
 			<cfset variables.siteBean=application.settingsManager.getSite(variables.rsSites.siteID)>
@@ -335,8 +339,8 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 				<cfset variables.themeConfig="">
 			</cfif>
 			
-			<cfif len(variables.themeConfig) and not structKeyExists(variables.themeHash,hash(variables.themedir))>
-				<cfset variables.themeHash[hash(variables.themedir)]=variables.themedir>
+			
+			<cfif len(variables.themeConfig)>
 				
 				<cfif variables.themeConfig eq "config.xml.cfm">
 					<cfsavecontent variable="variables.themeConfig">
@@ -396,6 +400,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 				update tcontent set body=filename where 
 				contentID=<cfqueryparam cfsqltype="cf_sql_varchar" value="#variables.item.getContentID()#">
 				and siteID=<cfqueryparam cfsqltype="cf_sql_varchar" value="#variables.item.getSiteID()#">
+				and body is null
 			</cfquery>
 
 			<cfset application.serviceFactory.getBean("contentUtility").setUniqueFilename(variables.item)>
@@ -443,7 +448,8 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 				<cfset application.serviceFactory.getBean('fileWriter').renameFile(source=local.bundleLoc,destination=expandPath("/muraWRM/config/setup/deploy/#createUUID()#.zip"))>
 		</cfif>
 
-		<cfset application.sessionTrackingThrottle=false>	
+		<cfset application.sessionTrackingThrottle=false>
+	
 	</cfif>	
 </cflock>
 </cfif>	 

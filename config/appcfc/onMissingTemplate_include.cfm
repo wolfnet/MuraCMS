@@ -61,10 +61,11 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	<cfset application.pluginManager.announceEvent("onGlobalMissingTemplate",local.pluginEvent)>
 
 	<cfif isDefined("application.contentServer")>
-		<cfset onRequestStart()>
-		<cfset application.contentServer.renderFilename(listDeleteAt(cgi.script_name, listLen(cgi.script_name,"/"), "/"))>
-		<cfset onRequestEnd()>
-		<cfreturn true>
-	</cfif>
+     	<cfset onRequestStart()>
+     	<cfset application.contentServer.renderFilename(listDeleteAt(cgi.script_name, listLen(cgi.script_name,"/"), "/"))>
+   		<cfset onRequestEnd()>
+     	<cfreturn true>
+   </cfif>
+   
 </cfif>
 <cfreturn false>

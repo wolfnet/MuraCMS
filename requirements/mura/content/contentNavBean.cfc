@@ -197,7 +197,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 	<cfif arguments.liveOnly>
 		<cfset q=getKidsQuery(arguments.aggregation) />
 	<cfelse>
-		<cfset q=variables.contentManager.getNest( parentID:getValue("parentID"), siteID:getValue("siteID"), sortBy:getValue("sortBy"), sortDirection:getValue("sortDirection")) />
+		<cfset q=variables.contentManager.getNest( parentID:getValue("contentID"), siteID:getValue("siteID"), sortBy:getValue("sortBy"), sortDirection:getValue("sortDirection")) />
 	</cfif>
 	<cfset it.setQuery(q,getValue("nextn"))>
 	
@@ -227,7 +227,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 </cffunction>			
 
 <cffunction name="getImageURL" output="false">
-	<cfargument name="size" required="true" default="Large">
+	<cfargument name="size" required="true" default="undefined">
 	<cfargument name="direct" default="true"/>
 	<cfargument name="complete" default="false"/>
 	<cfargument name="height" default=""/>

@@ -91,7 +91,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		<cfinclude template="dsp_file_selector.cfm">
 	</cfif>	
 
-	<cfif rc.type neq 'Form' and  rc.type neq 'Component' >	
+	<cfif not ListFindNoCase('Form,Component',rc.type) >	
 		<div class="control-group summaryContainer" style="display:none;">
 	      	<label class="control-label">
 	      		<a href="##" rel="tooltip" title="#HTMLEditFormat(application.rbFactory.getKeyValue(session.rb,"tooltip.contentSummary"))#">
@@ -126,8 +126,14 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 					jQuery('##summary').ckeditor(
 		     		{ toolbar:'Summary',
 		     			height:'150',
-		     		  	customConfig : 'config.js.cfm'},
-		     		htmlEditorOnComplete
+		     		  	customConfig : 'config.js.cfm'
+					},
+		     		function(editorInstance){
+						htmlEditorOnComplete(editorInstance);
+						if (!hasBody){
+							showPreview();
+						}
+					}
 		     	);
 				}
 			}
@@ -137,13 +143,13 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 		</script>
 	</cfif>
 
-	<cfif rc.type eq 'Page' or rc.type eq 'Folder' or rc.type eq 'Gallery' or rc.type eq 'Calendar' or  rc.type eq 'Component' or  rc.type eq 'Form' >
-		<div class="control-group">
-	      	<label class="control-label">
+	<cfif listFindNoCase('Form,Gallery,Calendar,Component,Page,Folder',rc.type)>    	
+		<cfset rsPluginEditor=application.pluginManager.getScripts("onHTMLEdit",rc.siteID)>
+		<div id="bodyContainer" class="body-container controls"<cfif rsPluginEditor.recordcount> style="display:none;"</cfif>>
+			<div class="control-group">
+			<label class="control-label">
 	      		#application.rbFactory.getKeyValue(session.rb,"sitemanager.content.fields.content")#
 	      	</label>
-			<cfset rsPluginEditor=application.pluginManager.getScripts("onHTMLEdit",rc.siteID)>
-			<div id="bodyContainer" class="body-container controls"<cfif rsPluginEditor.recordcount> style="display:none;"</cfif>>
 			<cfif rsPluginEditor.recordcount>
 				#application.pluginManager.renderScripts("onHTMLEdit",rc.siteid,pluginEvent,rsPluginEditor)#
 			<cfelse>
@@ -181,7 +187,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 					
 					function FCKeditor_OnComplete( editorInstance ) { 	
 						<cfif rc.preview eq 1>
-					   	preview('http://#application.settingsManager.getSite(rc.siteid).getDomain()##application.configBean.getServerPort()##application.configBean.getContext()##application.contentRenderer.getURLStem(rc.siteid,'')#?previewid=#rc.contentBean.getcontenthistid()#','#rc.contentBean.getTargetParams()#');
+					   	preview('http://#application.settingsManager.getSite(rc.siteid).getDomain()##application.configBean.getServerPort()##application.configBean.getContext()##rc.$.getURLStem(rc.siteid,'')#?previewid=#rc.contentBean.getcontenthistid()#','#rc.contentBean.getTargetParams()#');
 						</cfif> 
 						htmlEditorOnComplete(editorInstance); 
 					}
@@ -218,17 +224,7 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 							},
 								function(editorInstance){
 									htmlEditorOnComplete(editorInstance);
-									<cfif rc.preview eq 1>
-										if(!previewLaunched){
-									<cfif listFindNoCase("File",rc.type)>
-										preview('http://#application.settingsManager.getSite(rc.siteid).getDomain()##application.configBean.getServerPort()##application.configBean.getContext()##application.contentRenderer.getURLStem(rc.siteid,'')#?previewid=#rc.contentBean.getcontenthistid()#&siteid=#rc.contentBean.getsiteid()#');
-									<cfelse>
-										openPreviewDialog('http://#application.settingsManager.getSite(rc.siteid).getDomain()##application.configBean.getServerPort()##application.configBean.getContext()##application.contentRenderer.getURLStem(rc.siteid,'')#?previewid=#rc.contentBean.getcontenthistid()#&siteid=#rc.contentBean.getsiteid()#');
-									</cfif>
-											previewLaunched=true;
-										}
-									</cfif>
-									
+									showPreview();
 								}
 							);
 						}
@@ -237,6 +233,27 @@ version 2 without this exception.  You may, if you choose, apply this exception 
 					<cfif not isExtended>
 						showBodyEditor();	
 					</cfif>
+					
+					jQuery(document).ready(function(){
+						if (!hasSummary && !hasBody){
+							setTimeout(function(){
+								showPreview();
+							}, 2000);
+						}
+					});	
+					
+					function showPreview(){
+						<cfif rc.preview eq 1>
+							if(!previewLaunched){
+						<cfif listFindNoCase("File",rc.type)>
+							preview('http://#application.settingsManager.getSite(rc.siteid).getDomain()##application.configBean.getServerPort()##application.configBean.getContext()##rc.$.getURLStem(rc.siteid,'')#?previewid=#rc.contentBean.getcontenthistid()#&siteid=#rc.contentBean.getsiteid()#');
+						<cfelse>
+							openPreviewDialog('http://#application.settingsManager.getSite(rc.siteid).getDomain()##application.configBean.getServerPort()##application.configBean.getContext()##rc.$.getURLStem(rc.siteid,'')#?previewid=#rc.contentBean.getcontenthistid()#&siteid=#rc.contentBean.getsiteid()#');
+						</cfif>
+							previewLaunched=true;
+							}
+						</cfif>
+					}
 					</script>
 				</cfif>
 			</cfif>
